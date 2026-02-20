@@ -1,0 +1,118 @@
+route async POST api $record {
+	if (!$this->model = CMS::uriRecordFind($record)) return false
+	$class = $this->model
+	$this->record = new $class(...%payload)
+	$this->can($this->model, 'create', $this->record)
+	$this->applySave
+	location(slash.($this->model::$uriRecord ?? $this->model).slash.$this->record->id)
+}
+
+route async POST api $record $id $fieldName {
+	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
+	$parentRecord = $parent::record(id: $id)
+	$parentRecord || error(404)
+	$this->can($parent, 'view', $parentRecord)
+	$this->model = $parent::objResolveClass($field->obj)
+	$class = $this->model
+	$this->record = new $class(...[$parent => $id], ...%payload)
+	$this->can($this->model, 'create', $this->record)
+	$this->applySave
+	location(slash.$record.slash.$id.slash.$fieldName.slash.$this->record->id)
+}
+
+route async PUT api $record $id {
+	if (!$this->model = CMS::uriRecordFind($record)) return false
+	$this->id = $id
+	$this->record = $this->model::record(id: $id)
+	$this->record || error(404)
+	$this->can($this->model, 'change', $this->record)
+	$this->applySave
+	location(slash.($this->model::$uriRecord ?? $this->model).slash.$id)
+}
+
+route async PUT api $record $id $fieldName $childId {
+	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
+	$parentRecord = $parent::record(id: $id)
+	$parentRecord || error(404)
+	$this->can($parent, 'view', $parentRecord)
+	$this->model = $parent::objResolveClass($field->obj)
+	$this->id = $childId
+	$this->record = $this->model::record(id: $childId)
+	$this->record || error(404)
+	$this->can($this->model, 'change', $this->record)
+	$this->applySave
+	location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
+}
+
+route async PATCH api $model $id $fieldName {
+	$this->model = in_array($model, %app->models, true) ? $model : CMS::uriRecordFind($model)
+	if (!$this->model || !($field = $this->model::fields()[$fieldName] ?? null)) return false
+	$this->record = $this->model::record(id: $id)
+	$this->record || error(404)
+	$this->can($this->model, 'change', $this->record)
+	$this->parsePayload($this->fieldsPatch($fieldName))
+	$this->record->objSave
+	$fallback = slash.($this->model::$uriRecord ?? $this->model::objShortName()).slash.$id
+	$backPath = %req->referer ? (parse_url(%req->referer, PHP_URL_PATH) ?: null) : null
+	$back = ($backPath && str_starts_with($backPath, slash) && !str_starts_with($backPath, slash.slash)) ? $backPath : $fallback
+	location($back)
+}
+
+route async DELETE api $record $id {
+	if (!$model = CMS::uriRecordFind($record)) return false
+	$recordObj = $model::record(id: $id)
+	$recordObj || error(404)
+	$this->can($model, 'delete', $recordObj)
+	$model::delete('id=?', $id)
+	location(slash.($model::$uriList ?? $model::$table))
+}
+
+route async DELETE api $record $id $fieldName $childId {
+	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
+	$parentRecord = $parent::record(id: $id)
+	$parentRecord || error(404)
+	$this->can($parent, 'view', $parentRecord)
+	$childModel = $parent::objResolveClass($field->obj)
+	$childRecord = $childModel::record(id: $childId)
+	$childRecord || error(404)
+	$this->can($childModel, 'delete', $childRecord)
+	$childModel::delete('id=?', $childId)
+	location(slash.($parent::$uriRecord ?? $parent).slash.$id)
+}
+
+method can($model, string $action, $record = null){
+	$inputModel = $model
+	!str_contains($model, '\\') && class_exists('phlo\\'.$model) && $model = 'phlo\\'.$model
+	$model = class_exists($model) ? $model : (CMS::uriRecordFind($inputModel) ?: error(403))
+	$method = 'can'.ucfirst($action)
+	if (!method_exists($model, $method)) return true
+	$isAllowed = is_null($record) ? $model::$method() : $model::$method($record)
+	$isAllowed || error(403)
+	return true
+}
+
+method fields => array_filter($this->model::fields(), fn($field) => !in_array($field->type, ['child', 'many', 'virtual']))
+prop fieldsPatch($name) => array_filter($this->fields, fn($field) => $field->handle || $field->name === $name)
+
+method checkRequired {
+	$errors = []
+	foreach ($this->fields AS $column => $field){
+		$value = %payload->$column ?? $this->record->$column ?? null
+		$fieldErrors = $field->errors($value)
+		$fieldErrors && $errors[$column] = $fieldErrors
+	}
+	return $errors ?: true
+}
+
+method parsePayload($fields) => loop($fields, [$this, 'parsePayloadField'])
+method parsePayloadField($field, $column){
+	if ($field->has('parse')) $field->parse($this->record)
+	elseif (($value = %payload->$column) !== null) $this->record->$column = $field->sanitize($value)
+}
+
+method applySave {
+	if (is_array($required = $this->checkRequired)) apply(class: [loop(array_keys($required), fn($column) => "[name=\"$column\"]", ', ') => 'error'], error: implode(lf, array_merge(...array_values($required))))
+	$this->parsePayload($this->fields)
+	if (%req->method === 'POST') $this->record = $this->model::create(...$this->record)
+	if (%req->method === 'PUT') $this->record->objSave
+}

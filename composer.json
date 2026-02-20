@@ -1,0 +1,16 @@
+{
+    "name": "phlo/cms",
+    "description": "Phlo CMS, content management system for the Phlo framework",
+    "type": "library",
+    "license": "Apache-2.0",
+    "homepage": "https://phlo.tech",
+    "authors": [
+        {
+            "name": "q-ai.nl",
+            "homepage": "https://q-ai.nl"
+        }
+    ],
+    "require": {
+        "phlo/tech": "*"
+    }
+}
