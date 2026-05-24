@@ -6,13 +6,18 @@ if (%req->async) return
 %app->theme && %app->css[] = '/theme.'.%app->theme.'.css'
 %app->trans && %app->css[] = '/trans.'.%app->trans.'.css'
 
-view => $this->nav.lf.$this->toggle
+view => $this->top.$this->nav.lf.$this->toggle
 
 view nav:
 <nav>
 	<a href="/"{{ active(%app->active === 'dashboard', 'async') }}><i>⚡</i>Dashboard</a>
 	<foreach %app->menu AS $model => $item>
 		<a href="/$item[uri]"{{ active(%app->active === $model, 'async') }}><i>$item[icon]</i>$item[title]</a>
+		<if %app->active === $model && class_exists($model) && method_exists($model, 'objFilters')>
+			<foreach $model::objFilters() AS $key => $f>
+				<a.sub.async href="/$item[uri]/f=$key"><i>·</i>{{ esc($f['title']) }}</a>
+			</foreach>
+		</if>
 	</foreach>
 	<a href="/settings"{{ active(%app->active === 'settings', 'async') }}><i>🔧</i>Settings</a>
 </nav>
