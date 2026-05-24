@@ -31,13 +31,13 @@ on('click', '#menuToggle', (toggle) => apply(() => toggle.classList.toggle('hide
 </script>
 
 <style>
-body {
+body:has(> nav) {
 	background: $background
 	color: $text
-  display: flex
+	display: flex
 	gap: 0 .5em
-  height: 100dvh
-  margin: 0
+	height: 100dvh
+	margin: 0
 	overflow-x: hidden
 	@media(max-width:800px): flex-direction: column-reverse
 }
