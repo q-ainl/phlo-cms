@@ -1,7 +1,7 @@
 @ type: abstract class
 
 function main(string $main, $title = null, ...$args){
-	$layout = phlo('CMS_layout'.($layout = %app->layout ? "_$layout" : void))
+	$layout = phlo('CMS_layout'.(($variant = %app->layout) ? "_$variant" : void))
 	$main = tag('main', indentView(lf.trim($main).lf))
 	$args['path'] ??= %req->path
 	if (%req->async) view(...$args, title: $title, settings: ['scroll' => 'main'], outer: ['nav' => $layout->nav], main: $main, trans: %app->trans ?: 'page')
