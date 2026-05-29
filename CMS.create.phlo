@@ -17,12 +17,12 @@ route both GET create $record $id $fieldName $debug? {
 }
 
 prop mode = 'create'
-prop title => 'Nieuw: '.$this->titleRecord
+prop title => 'New: '.$this->titleRecord
 prop record => new $this->model
 
 prop actions {
 	$actions = []
-	$actions[] = button('Opslaan', form: 'form', class: 'primary')
+	$actions[] = button('Save', form: 'form', class: 'primary')
 	return implode(lf, $actions)
 }
 

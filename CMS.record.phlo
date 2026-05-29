@@ -29,8 +29,8 @@ prop title => "$this->titleRecord: $this->record"
 
 prop actions {
 	$actions = []
-	$this->model::canDelete($this->record) && $actions[] = button('Verwijderen', data_delete: "api/$this->uri", data_confirm: 'Verwijderen?', class: 'warning')
-	$this->model::canChange($this->record) && $actions[] = tag('a', 'Bewerken', href: "/change/$this->uri", class: 'async btn primary')
+	$this->model::canDelete($this->record) && $actions[] = button('Delete', data_delete: "api/$this->uri", data_confirm: 'Delete?', class: 'warning')
+	$this->model::canChange($this->record) && $actions[] = tag('a', 'Edit', href: "/change/$this->uri", class: 'async btn primary')
 	return implode(lf, $actions)
 }
 
