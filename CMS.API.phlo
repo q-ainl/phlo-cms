@@ -89,7 +89,7 @@ method parsePayloadField($field, $column){
 }
 
 method applySave {
-	if (is_array($required = $this->checkRequired)) apply(class: [loop($required, fn($field) => "[name=\"$field->name\"]", ', ') => 'error'], error: 'Vul alle verplichte velden in')
+	if (is_array($required = $this->checkRequired)) apply(class: [loop($required, fn($field) => "[name=\"$field->name\"]", ', ') => 'error'], error: 'Fill in all required fields')
 	$old = clone $this->record
 	$this->parsePayload($this->fields)
 	$this->event('beforeSave', $old)

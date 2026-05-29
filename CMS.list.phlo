@@ -54,7 +54,7 @@ prop actions {
 		$this->filters && $actions[] = $this->filterField
 		$this->sorts && $actions[] = $this->sortField
 	}
-	$this->model::canCreate() && $actions[] = tag('a', 'Nieuw', href: '/create/'.$this->uri(true), class: 'async btn primary')
+	$this->model::canCreate() && $actions[] = tag('a', 'New', href: '/create/'.$this->uri(true), class: 'async btn primary')
 	return implode(lf, $actions)
 }
 
@@ -104,8 +104,8 @@ view bodyRecords:
 	{{ $this->noRecords }}
 </if>
 
-view more: {( count($this->records) === $this->pp ? tag('button', id: 'more', inner: 'Meer laden') : void )}
-view noRecords: <tr><td.noRecords colspan="$this->fieldCount">Geen {{ strtolower($this->titleList) }}</td></tr>
+view more: {( count($this->records) === $this->pp ? tag('button', id: 'more', inner: 'Load more') : void )}
+view noRecords: <tr><td.noRecords colspan="$this->fieldCount">No {{ strtolower($this->titleList) }}</td></tr>
 
 <script>
 on('input', '#search', search => delay('search', 400, () => listing('q', search.value.trim() ? search.value.trim() : null, search.closest('section'))))

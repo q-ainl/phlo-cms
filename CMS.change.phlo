@@ -17,11 +17,11 @@ route both GET change $record $id $fieldName $childId $debug? {
 }
 
 prop mode = 'change'
-prop title => 'Bewerken: '.$this->titleRecord.space.$this->record
+prop title => 'Edit: '.$this->titleRecord.space.$this->record
 
 prop actions {
 	$actions = []
-	$actions[] = button('Opslaan', form: 'form', class: 'primary')
+	$actions[] = button('Save', form: 'form', class: 'primary')
 	return implode(lf, $actions)
 }
 

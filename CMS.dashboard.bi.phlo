@@ -4,7 +4,7 @@ route both GET $list $token {
 	$this->fromBI(token: $token)
 }
 route async POST bi @q {
-	trim(%payload->q) || error('Geef aan wat je zoekt')
+	trim(%payload->q) || error('Describe what you are looking for')
 	($search = array_filter(loop($this->searches->objData, fn($search, $token) => $search['title'] === %payload->q ? $search : null))) && ($token = key($search)) && $this->fromBI($search[$token], $token)
 	$token = token(input: %payload->q)
 	$res = $this->searches->$token ??= array_filter(json_decode(%AI->chat(model: %app->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".$model::columns(), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
@@ -38,7 +38,7 @@ method fromBI($res = null, $token = null){
 view:
 <form#bi.async action=/bi method=post autocomplete=off>
 	<button#speak.icon.microphone type=button autofocus/>
-	<input.field.full type=text name=q list=searches placeholder="Omschrijf wat je wilt weten">
+	<input.field.full type=text name=q list=searches placeholder="Describe what you want to know">
 	{{ $this->datalist }}
 	<button>&gt;</button>
 </form>
@@ -51,28 +51,28 @@ view datalist {
 }
 
 view prompt($struct, $q):
-Je bent een BI operator die in staat is exact de gevraagde informatie terug te leveren om queries op te bouwen.
-Hieronder volgt een table structuur in MySQL. Geef de gevraagde velden om een geldige query op te kunnen bouwen.
-Verzin nooit kolommen die niet in de structuur genoemd worden!!
-Vraag:
+You are a BI operator able to return exactly the requested information for building queries.
+Below is a MySQL table structure. Return the required fields to build a valid query.
+Never invent columns that are not listed in the structure!!
+Question:
 --
 $q
 --
-Geef alleen een JSON object terug.
+Return a JSON object only.
 {{ void }}
-Geef de volgende waarden:
--title (titel die kort omschrijft waar er naar gezocht wordt)
--model (niet te verwarren met de table name, deze is singular!!)
--where (optioneel, het deel na " WHERE ")
--joins (optioneel; string)
--order (optioneel, het deel na " ORDER BY ")
--group (optioneel, het deel na " GROUP BY ")
--limit (optioneel, het deel na " LIMIT ")
+Provide the following values:
+-title (short title describing what is being searched for)
+-model (not to be confused with the table name, this is singular!!)
+-where (optional, the part after " WHERE ")
+-joins (optional; string)
+-order (optional, the part after " ORDER BY ")
+-group (optional, the part after " GROUP BY ")
+-limit (optional, the part after " LIMIT ")
 {{ void }}
-Structuur:
+Structure:
 {{ void }}
 $struct
-Het is momenteel {{ date('j-n-Y H:i') }}.
+It is currently {{ date('j-n-Y H:i') }}.
 
 <script>
 const recognition = window.webkitSpeechRecognition ? new webkitSpeechRecognition : null
