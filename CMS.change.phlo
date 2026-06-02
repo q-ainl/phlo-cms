@@ -5,6 +5,7 @@ route both GET change $record $id $debug? {
 	%app->active = $model
 	$CMS = CMS($model, 'change', id: $id)
 	$debug && dx($model, $CMS)
+	if (!$CMS->record) return main(tag('section', tag('h1', 'Niet gevonden').tag('p', 'Dit record bestaat niet (meer).')), 'Niet gevonden')
 	main($CMS, $CMS->title)
 }
 

@@ -41,12 +41,13 @@ prop uri($useRecord = false){
 	return $parentPath.$selfPath.$idPath
 }
 
-method event => $this->record->hasMethod($method = 'view'.ucfirst($this->mode)) && is_string($output = $this->record->$method($this)) ? "$output\n" : void
+method event => $this->record?->hasMethod($method = 'view'.ucfirst($this->mode)) && is_string($output = $this->record->$method($this)) ? "$output\n" : void
 
 method field($field, $record, $tag){
 	$mode = $this->mode
 	$views = ['list' => 'label', 'record' => 'label', 'create' => 'input', 'change' => 'input']
-	$view = $field->$mode === true || $field->$mode === null ? $views[$mode] : $field->$mode; $view === 'list' && $mode === 'record' && ($view = 'count')
+	$view = $field->$mode === true || $field->$mode === null ? $views[$mode] : $field->$mode
+	$view === 'list' && $mode === 'record' && ($view = 'count')
 	$classes = [$view, $type = substr($field::class, 6)]
 	$body = $field->$view($record)
 	$field->prefix && $body = $field->prefix.$body

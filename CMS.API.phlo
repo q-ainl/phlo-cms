@@ -2,8 +2,7 @@ route async POST api $record {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!$this->model = CMS::uriRecordFind($record)) return false
 	$this->record = phlo($this->model, ...%payload)
-	$this->applySave
-	location(slash.($this->model::$uriRecord ?? $this->model).slash.$this->record->id)
+	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$this->record->id)
 }
 
 route async POST api $record $id $fieldName {
@@ -11,8 +10,7 @@ route async POST api $record $id $fieldName {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	$this->record = phlo($this->model, ...[$parent => $id], ...%payload)
-	$this->applySave
-	location(slash.$record.slash.$id.slash.$fieldName.slash.$this->record->id)
+	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$this->record->id)
 }
 
 route async PUT api $record $id {
@@ -20,8 +18,7 @@ route async PUT api $record $id {
 	if (!$this->model = CMS::uriRecordFind($record)) return false
 	$this->id = $id
 	$this->record = $this->model::record(id: $id)
-	$this->applySave
-	location(slash.($this->model::$uriRecord ?? $this->model).slash.$id)
+	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$id)
 }
 
 route async PUT api $record $id $fieldName $childId {
@@ -30,8 +27,7 @@ route async PUT api $record $id $fieldName $childId {
 	$this->model = $field->obj
 	$this->id = $childId
 	$this->record = $this->model::record(id: $childId)
-	$this->applySave
-	location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
+	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
 }
 
 route async PATCH api $model $id $fieldName {
@@ -89,7 +85,10 @@ method parsePayloadField($field, $column){
 }
 
 method applySave {
-	if (is_array($required = $this->checkRequired)) apply(class: [loop($required, fn($field) => "[name=\"$field->name\"]", ', ') => 'error'], error: 'Fill in all required fields')
+	if (is_array($required = $this->checkRequired)){
+		apply(class: [loop($required, fn($field) => "[name=\"$field->name\"]", ', ') => 'error'], error: 'Fill in all required fields')
+		return false
+	}
 	$old = clone $this->record
 	$this->parsePayload($this->fields)
 	$this->event('beforeSave', $old)
@@ -104,4 +103,5 @@ method applySave {
 		$this->event('afterChange', $old)
 	}
 	$this->event('afterSave', $old)
+	return true
 }

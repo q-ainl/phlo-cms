@@ -5,7 +5,7 @@ route both GET $list $token {
 }
 route async POST bi @q {
 	trim(%payload->q) || error('Describe what you are looking for')
-	($search = array_filter(loop($this->searches->objData, fn($search, $token) => $search['title'] === %payload->q ? $search : null))) && ($token = key($search)) && $this->fromBI($search[$token], $token)
+	if (($search = array_filter(loop($this->searches->objData, fn($search, $token) => $search['title'] === %payload->q ? $search : null))) && ($token = key($search))) return $this->fromBI($search[$token], $token)
 	$token = token(input: %payload->q)
 	$res = $this->searches->$token ??= array_filter(json_decode(%AI->chat(model: %app->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".$model::columns(), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
 	$this->pruneCache()

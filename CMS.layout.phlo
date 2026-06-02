@@ -32,7 +32,7 @@ on('click', '#menuToggle', (toggle) => apply(() => toggle.classList.toggle('hide
 
 <style>
 body:has(> nav) {
-	background: $background
+	background: $bg
 	color: $text
 	display: flex
 	gap: 0 .5em

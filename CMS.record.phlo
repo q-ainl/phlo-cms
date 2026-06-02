@@ -5,11 +5,12 @@ route both GET $record $id $debug? {
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id)
 	$debug && dx($model, $CMS)
+	if (!$CMS->record) return main(tag('section', tag('h1', 'Niet gevonden').tag('p', 'Dit record bestaat niet (meer).')), 'Niet gevonden')
 	main($CMS, $CMS->title)
 }
 
 route both GET $record $id $fieldName $childId $debug? {
-	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !(is_a($field, 'field_child') || is_a($field, 'field_many'))) return false;
+	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !(is_a($field, 'field_child') || is_a($field, 'field_many'))) return false
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, childId: $childId, childMode: 'record', hideBody: true)
 	$debug && dx($model, $CMS, $field, $childId)
@@ -17,7 +18,7 @@ route both GET $record $id $fieldName $childId $debug? {
 }
 
 route both GET $record $id $fieldName $debug? {
-	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !(is_a($field, 'field_child') || is_a($field, 'field_many'))) return false;
+	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !(is_a($field, 'field_child') || is_a($field, 'field_many'))) return false
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, hideBody: true)
 	$debug && dx($model, $CMS, $field)
@@ -99,7 +100,7 @@ section.record.default, section.change.default, section.create.default: div.body
 		flex-direction: column
 		gap: .5rem
 		> div {
-			background: $surface-alt
+			background: $border
 			border-radius: 6px
 			flex: 1
 			display: flex

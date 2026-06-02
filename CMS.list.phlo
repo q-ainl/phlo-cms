@@ -6,7 +6,7 @@ route both GET $list $options=* {
 	$CMS = CMS($model, 'list')
 	$options === 'debug' && dx($model, $CMS)
 	$options && static::listOptions($CMS, $options)
-	$options && %req->async && ($CMS->page ? apply(...array_filter(arr(append: [$CMS->sectionSel.' table tbody' => $CMS->bodyRecords], outer: [$CMS->sectionSel.' #more' => $CMS->more], remove: (!$CMS->more) ? $CMS->sectionSel.' #more' : null, data: [$CMS->sectionSel => ['page' => $CMS->page]]))) : apply(...array_filter(arr(outer: [$CMS->sectionSel.' table' => $CMS->body, $CMS->sectionSel.' #more' => $CMS->more], remove: (!$CMS->more) ? $CMS->sectionSel.' #more' : null, data: [$CMS->sectionSel => ['page' => 0]], trans: true, path: $CMS->parent ? null : %req->path))))
+	if ($options && %req->async) return $CMS->page ? apply(...array_filter(arr(append: [$CMS->sectionSel.' table tbody' => $CMS->bodyRecords], outer: [$CMS->sectionSel.' #more' => $CMS->more], remove: (!$CMS->more) ? $CMS->sectionSel.' #more' : null, data: [$CMS->sectionSel => ['page' => $CMS->page]]))) : apply(...array_filter(arr(outer: [$CMS->sectionSel.' table' => $CMS->body, $CMS->sectionSel.' #more' => $CMS->more], remove: (!$CMS->more) ? $CMS->sectionSel.' #more' : null, data: [$CMS->sectionSel => ['page' => 0]], trans: true, path: $CMS->parent ? null : %req->path)))
 	main($CMS, $CMS->title)
 }
 
@@ -139,7 +139,7 @@ section.list.default {
 				padding: .55rem .75rem .55rem 2.25rem
 				border: none
 				border-radius: 9px
-				background: $surface-alt
+				background: $border
 				color: $text
 				font-size: .85em
 			}    
@@ -165,9 +165,9 @@ section.list.default {
 			top: 60px
 		}
 		tbody tr {
-			\:nth-child(odd): background: $row-odd
-			\:nth-child(even): background: $row-even
-			\:hover td, td.active: background: $row-hover
+			\:nth-child(odd): background: transparent
+			\:nth-child(even): background: color-mix(in srgb, $surface 92%, $text)
+			\:hover td, td.active: background: color-mix(in srgb, $surface 82%, $text)
 			td {
 				padding: .5rem
 				vertical-align: top
