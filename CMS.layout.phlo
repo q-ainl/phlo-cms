@@ -18,6 +18,11 @@ view nav:
 				<a.sub.async href="/$item[uri]/f=$key"><i>·</i>{{ esc($f['title']) }}</a>
 			</foreach>
 		</if>
+		<if %app->active === $model && class_exists($model) && method_exists($model, 'subNav')>
+			<foreach $model::subNav() AS $sub>
+				<a href="$sub[uri]"{{ active($sub['active'], 'sub async'.(($sub['cls'] ?? null) ? space.$sub['cls'] : void)) }}><i>{( $sub['icon'] ?? '·' )}</i>{{ esc($sub['title']) }}</a>
+			</foreach>
+		</if>
 	</foreach>
 	<a href="/settings"{{ active(%app->active === 'settings', 'async') }}><i>🔧</i>Settings</a>
 </nav>
@@ -76,6 +81,7 @@ nav {
 		border-bottom-right-radius: 16px
 		color: $text
 		display: block
+		flex-shrink: 0
 		overflow: hidden
 		padding: .5rem
 		text-decoration: none
@@ -83,6 +89,13 @@ nav {
 		i: font-style: normal
 		\:hover, \.active: background: $primary
 		\:last-child: margin-top: auto
+		\.sub {
+			font-size: .82em
+			opacity: .7
+			padding-top: .3rem
+			padding-bottom: .3rem
+		}
+		\.sub.active: opacity: 1
 		i {
 			display: inline-block
 			font-size: .85em

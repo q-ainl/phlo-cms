@@ -1,0 +1,21 @@
+{
+    "name": "phlo/cms",
+    "description": "Phlo CMS: reusable CRUD and admin layer for Phlo with models, fields, list/record/create/edit views, REST API, dashboard widgets, layout and themes.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["phlo", "cms", "crud", "admin", "framework", "frankenphp"],
+    "homepage": "https://github.com/q-ainl/phlo-cms",
+    "authors": [
+        {
+            "name": "Jordi Boerman",
+            "email": "j@rdi.nu"
+        }
+    ],
+    "require": {
+        "php": ">=8.3",
+        "phlo/tech": "^1.0"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
