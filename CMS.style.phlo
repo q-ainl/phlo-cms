@@ -27,6 +27,52 @@ select option {
 	background: black
 	color: white
 }
+form.create, form.change, section.record .body {
+	display: flex
+	flex-direction: column
+	gap: .9rem
+	max-width: 34rem
+	padding: 1rem 0 2rem
+}
+.field {
+	display: flex
+	flex-direction: column
+	gap: .3rem
+}
+.field > label {
+	color: $muted
+	font-size: .8rem
+}
+.field > .input, .field > .label {
+	background: $surface
+	border: 1px solid $border
+	border-radius: 8px
+	padding: .5rem .65rem
+}
+.field > .label {
+	color: $text
+	min-height: 1.15em
+}
+.field > .input:focus-within: border-color: $primary
+.field > .input input.field, .field > .input select, .field > .input textarea {
+	width: 100%
+}
+.ms-grid {
+	display: flex
+	flex-wrap: wrap
+	gap: .4rem .9rem
+	padding: .25rem 0
+}
+.ms-opt {
+	align-items: center
+	cursor: pointer
+	display: inline-flex
+	gap: .35rem
+}
+.ms-opt input {
+	width: auto
+	margin: 0
+}
 button, .btn {
 	background: $surface
 	border-radius: 6px
