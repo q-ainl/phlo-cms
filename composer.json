@@ -1,9 +1,9 @@
 {
     "name": "phlo/cms",
-    "description": "Phlo CMS: reusable CRUD and admin layer for Phlo with models, fields, list/record/create/edit views, REST API, dashboard widgets, layout and themes.",
+    "description": "Turn a single model schema into a complete admin UI and JSON API: Phlo CMS generates list, record, create and edit views with fields, validation, widgets and themes.",
     "type": "library",
     "license": "MIT",
-    "keywords": ["phlo", "cms", "crud", "admin", "framework", "frankenphp"],
+    "keywords": ["phlo", "cms", "crud", "admin", "scaffolding", "rest-api"],
     "homepage": "https://github.com/q-ainl/phlo-cms",
     "authors": [
         {
