@@ -1,4 +1,9 @@
 <style>
+:root {
+	font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif
+	scroll-behavior: smooth
+}
+dialog p: white-space: pre-wrap
 ::-webkit-scrollbar {
 	background: $bg
 	width: 12px
