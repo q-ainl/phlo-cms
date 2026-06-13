@@ -11,10 +11,10 @@ view => tag (
 )
 
 <script>
-widget.init.line = (data) => ({
+widget.init.line = data => ({
 	tooltip: {
 		trigger: 'axis',
-		valueFormatter: (value) => widget.format(value, data.price)
+		valueFormatter: value => widget.format(value, data.price)
 	},
 	grid: {
 		top: '20px',
@@ -29,7 +29,7 @@ widget.init.line = (data) => ({
 	},
 	yAxis: {
 		type: 'value',
-		axisLabel: {formatter: (value) => widget.format(value, data.price)}
+		axisLabel: {formatter: value => widget.format(value, data.price)}
 	},
 	series: [{
 		name: data.name,

@@ -36,7 +36,7 @@ const widget = {
 	}
 }
 onExist('#widgets', () => [app.mod.class('#widgets > figure', '-init'), widget.start()])
-on('resize', window, () => last(delay('resizeWidgets', 100, () => objects('#widgets figure > div').forEach((chart) => echarts.getInstanceByDom(chart)?.resize())), false))
+on('resize', window, () => last(delay('resizeWidgets', 100, () => objects('#widgets figure > div').forEach(chart => echarts.getInstanceByDom(chart)?.resize())), false))
 </script>
 
 <style>

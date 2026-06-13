@@ -79,13 +79,13 @@ const recognition = window.webkitSpeechRecognition ? new webkitSpeechRecognition
 if (recognition){
 	recognition.lang = obj('html').lang+'-'+obj('html').lang.toUpperCase()
 	recognition.interimResults = true
-	recognition.onresult = (e) => obj('#bi input').value = Array.from(e.results).map(result => result[0].transcript).join('')
-	recognition.onend = (e) => obj('#bi input').value && obj('#bi').requestSubmit()
+	recognition.onresult = e => obj('#bi input').value = Array.from(e.results).map(result => result[0].transcript).join('')
+	recognition.onend = e => obj('#bi input').value && obj('#bi').requestSubmit()
 }
 else app.mod.delete('#speak')
 on('click', '#speak', () => recognition.start())
-on('click', '#bi input', (input) => input.value = '')
-on('change', '#bi input', (input) => (index = Array.from(searches.options).map(opt => opt.value).indexOf(input.value)) >= 0 && app.get(searches.options[index].dataset.uri))
+on('click', '#bi input', input => input.value = '')
+on('change', '#bi input', input => (index = Array.from(searches.options).map(opt => opt.value).indexOf(input.value)) >= 0 && app.get(searches.options[index].dataset.uri))
 </script>
 
 <style>

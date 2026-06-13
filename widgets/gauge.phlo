@@ -8,7 +8,7 @@ view => tag (
 )
 
 <script>
-widget.init.gauge = (data) => ({
+widget.init.gauge = data => ({
   series: [
     {
       type: 'gauge',

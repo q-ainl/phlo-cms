@@ -9,10 +9,10 @@ view => tag (
 )
 
 <script>
-widget.init.pie = (data) => ({
+widget.init.pie = data => ({
 	tooltip: {
 		trigger: 'item',
-		formatter: (params) => {
+		formatter: params => {
 			const formattedValue = data.price ? new Intl.NumberFormat('nl-NL', {style: 'currency', currency: 'EUR'}).format(params.value) : params.value
 			const formattedPercent = new Intl.NumberFormat('nl-NL', {style: 'percent', maximumFractionDigits: 0}).format(params.percent / 100)
 			return `${params.name}: ${formattedValue} (${formattedPercent})`

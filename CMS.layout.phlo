@@ -76,7 +76,7 @@ view tools:
 </div>
 
 <script>
-on('click', '.cms-tool-toggle', (btn) => {
+on('click', '.cms-tool-toggle', btn => {
 	const tool = btn.closest('.cms-tool')
 	const open = !tool.classList.contains('open')
 	objects('.cms-tool.open').forEach(t => t.classList.remove('open'))
@@ -89,8 +89,8 @@ on('click', '.cms-tool-toggle', (btn) => {
 	}
 	return false
 })
-on('click', '.cms-pop a', (a) => a.closest('.cms-tool').classList.remove('open'))
-on('click', '#menuToggle', (toggle) => apply(() => toggle.classList.toggle('hide'), true))
+on('click', '.cms-pop a', a => a.closest('.cms-tool').classList.remove('open'))
+on('click', '#menuToggle', toggle => apply(() => toggle.classList.toggle('hide'), true))
 </script>
 
 <style>
