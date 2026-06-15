@@ -48,6 +48,7 @@ route async PATCH api $model $id $fieldName {
 }
 
 route async DELETE api $record $id {
+	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!$model = CMS::uriRecordFind($record)) return false
 	$this->model = $model
 	$this->record = $model::record(id: $id)
@@ -58,6 +59,7 @@ route async DELETE api $record $id {
 }
 
 route async DELETE api $record $id $fieldName $childId {
+	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	$this->record = $this->model::record(id: $childId)
@@ -81,8 +83,11 @@ method checkRequired {
 method parsePayload($fields) => loop($fields, [$this, 'parsePayloadField'])
 method parsePayloadField($field, $column){
 	if ($field->has('parse')) $field->parse($this->record)
-	elseif ($value = %payload->$column) $this->record->$column = $value
+	elseif ($this->writable($field) && ($value = %payload->$column)) $this->record->$column = $value
 }
+method writable($field) => (%req->method === 'POST' ? $field->create : $field->change) !== false
+method fieldsMany => array_filter($this->model::fields(), fn($field) => $field->type === 'many' && $this->writable($field))
+method syncMany => loop($this->fieldsMany, fn($field) => $field->sync($this->model, $this->record->id))
 
 method applySave {
 	if (is_array($required = $this->checkRequired)){
@@ -91,6 +96,9 @@ method applySave {
 	}
 	$old = clone $this->record
 	$this->parsePayload($this->fields)
+	foreach ($this->model::fields() AS $column => $field){
+		if ($field->type === 'many' && $this->record->hasData($column)) unset($this->record->$column)
+	}
 	$this->event('beforeSave', $old)
 	if (%req->method === 'POST'){
 		$this->event('beforeCreate')
@@ -102,6 +110,7 @@ method applySave {
 		$this->model::change('id=?', $this->id, ...$this->record) && $this->record = $this->model::record(id: $this->id)
 		$this->event('afterChange', $old)
 	}
+	$this->syncMany
 	$this->event('afterSave', $old)
 	return true
 }

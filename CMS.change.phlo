@@ -36,7 +36,7 @@ view body:
 <form#form class="$this->mode async" action="/api/$this->uri" method=put novalidate>
 	<foreach $this->fields AS $column => $field>
 		<div.field>
-			<label>{( $field->title ?? ucfirst($column) )}</label>
+			<label>{( $field->title ?? ucfirst($column) )}{( $field->required ? ' *' : void )}</label>
 			{{ $this->field($field, $this->record, 'div') }}
 		</div>
 	</foreach>

@@ -32,36 +32,6 @@ select option {
 	background: black
 	color: white
 }
-form.create, form.change, section.record .body {
-	display: flex
-	flex-direction: column
-	gap: .9rem
-	max-width: 34rem
-	padding: 1rem 0 2rem
-}
-.field {
-	display: flex
-	flex-direction: column
-	gap: .3rem
-}
-.field > label {
-	color: $muted
-	font-size: .8rem
-}
-.field > .input, .field > .label {
-	background: $surface
-	border: 1px solid $border
-	border-radius: 8px
-	padding: .5rem .65rem
-}
-.field > .label {
-	color: $text
-	min-height: 1.15em
-}
-.field > .input:focus-within: border-color: $primary
-.field > .input input.field, .field > .input select, .field > .input textarea {
-	width: 100%
-}
 .ms-grid {
 	display: flex
 	flex-wrap: wrap
@@ -88,10 +58,12 @@ button, .btn {
 	font: inherit
 	font-size: .9em
 	outline: 0
+	padding: .4rem .9rem
 	text-align: center
 	text-decoration: none
 	\.primary: background: $primary
 	\.warning: background: $warn
+	\.danger: background: $error
 }
 section header {
 	background: $bg
@@ -116,8 +88,7 @@ section header {
 		min-width: 2em
 	}
 	button, .btn {
-		height: 2em
-		margin-top: 5px
+		align-self: center
 	}
 }
 #more {

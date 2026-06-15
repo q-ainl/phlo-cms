@@ -30,8 +30,8 @@ prop title => "$this->titleRecord: $this->record"
 
 prop actions {
 	$actions = []
-	$this->model::canDelete($this->record) && $actions[] = button('Delete', data_delete: "api/$this->uri", data_confirm: 'Delete?', class: 'warning')
 	$this->model::canChange($this->record) && $actions[] = tag('a', 'Edit', href: "/change/$this->uri", class: 'async btn primary')
+	$this->model::canDelete($this->record) && $actions[] = button('Delete', data_delete: "api/$this->uri", data_confirm: 'Delete?', class: 'danger')
 	return implode(lf, $actions)
 }
 
@@ -78,38 +78,58 @@ view body:
 </div>
 
 <style>
-section.record.default, section.change.default, section.create.default: div.body, form {
-	border-radius: 12px
+section.record.default .body {
+	display: grid
+	gap: .75rem
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr))
+	margin-top: .75rem
+}
+section.record.default .body div.field\:has(.preview.image img), section.record.default .body div.field\:has(.label.wysiwyg): grid-column: 1 / -1
+section.change.default form, section.create.default form {
 	display: flex
-	flex-wrap: wrap
-	gap: 1rem
-	margin-top: .5rem
-	label {
-		font-weight: bold
-		color: $text
-		opacity: .8
-	}
-	.field {
+	flex-direction: column
+	gap: .8rem
+	margin-top: .75rem
+	max-width: 38rem
+}
+section.record.default, section.change.default, section.create.default {
+	div.field {
 		background: $surface
-		border: 1px solid #FFF1
-		border-radius: 9px
-		padding: 1rem
-		flex-grow: 1
-		min-width: 20%
+		border: 1px solid $border
+		border-radius: 10px
 		display: flex
 		flex-direction: column
-		gap: .5rem
-		> div {
-			background: $border
-			border-radius: 6px
-			flex: 1
-			display: flex
-			align-items: center
-			gap: .5rem
-			padding: .5rem
-			white-space: nowrap
+		gap: .35rem
+		min-width: 0
+		padding: .7rem .85rem
+		> label {
+			color: $muted
+			font-size: .72rem
+			font-weight: 600
+			letter-spacing: .03em
+			text-transform: uppercase
 		}
+		> .label {
+			color: $text
+			min-height: 1.2em
+			overflow-wrap: break-word
+		}
+		> .input {
+			align-items: center
+			border: 1px solid $border
+			border-radius: 7px
+			display: flex
+			gap: .4rem
+			padding: .45rem .55rem
+			\:focus-within: border-color: $primary
+			input.field, select, textarea {
+				flex: 1
+				min-width: 0
+				width: auto
+			}
+		}
+		> .input.wysiwyg, > .input.multiselect, > .input.image, > .input.file: display: block
 	}
-	.link: padding: .25rem 0
+	> section: margin-top: 1.5rem
 }
 </style>

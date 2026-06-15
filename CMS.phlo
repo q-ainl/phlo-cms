@@ -28,8 +28,9 @@ prop titleRecord => $this->model::$titleRecord ?? ucfirst($this->model)
 
 prop uriList => $this->model::$uriList ?? $this->model::$table
 prop uriRecord => $this->model::$uriRecord ?? $this->model
+prop recordMode => $this->model::$recordMode ?? %app->recordMode ?? 'view'
 
-prop section => "class=\"$this->selector\" data-model=\"$this->model\" data-list=\"$this->uriList\" data-record=\"".($this->relationshipName ?? $this->uriRecord)."\"".($this->parent ? ' data-parent="'.$this->parent->uriRecord.slash.$this->parent->id.'"' : void)
+prop section => "class=\"$this->selector\" data-model=\"$this->model\" data-list=\"$this->uriList\" data-record=\"".($this->relationshipName ?? $this->uriRecord)."\"".($this->parent ? ' data-parent="'.$this->parent->uriRecord.slash.$this->parent->id.'"' : void).($this->recordMode === 'edit' ? ' data-open="edit"' : void)
 prop sectionSel => 'section[data-model="'.$this->model.'"][data-record="'.($this->relationshipName ?? $this->uriRecord).'"]'.($this->parent ? '[data-parent="'.$this->parent->uriRecord.'/'.$this->parent->id.'"]' : '')
 prop selector => implode(space, array_filter([$this->isMain ? 'main' : null, $this->mode, $this->type]))
 prop titleTag => $this->isMain ? 'h1' : 'h2'
@@ -48,11 +49,10 @@ method field($field, $record, $tag){
 	$views = ['list' => 'label', 'record' => 'label', 'create' => 'input', 'change' => 'input']
 	$view = $field->$mode === true || $field->$mode === null ? $views[$mode] : $field->$mode
 	$view === 'list' && $mode === 'record' && ($view = 'count')
-	$classes = [$view, $type = substr($field::class, 6)]
+	$classes = [$view, $field->type]
 	$body = $field->$view($record)
 	$field->prefix && $body = $field->prefix.$body
 	$field->suffix && $body .= $field->suffix
-	$field->required && $mode !== 'list' && $view === 'input' && $body .= ' *'
 	if (!str_contains($body, '<a') && !str_contains($body, '<input') && !str_contains($body, '<select') && !str_contains($body, '<textarea')) $classes[] = 'link'
 	$class = ' class="'.implode(space, $classes).'"'
 	return "<$tag$class>$body</$tag>"

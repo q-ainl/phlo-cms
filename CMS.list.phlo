@@ -66,9 +66,9 @@ view:
 	{{ $this->body }}
 </section>
 
-view searchField: <div.search><input type=search id=search value="{{ esc($this->q ?? void) }}" placeholder="Zoek {{ strtolower($this->titleRecord) }}..."><i.icon.zoom/></div>
+view searchField: <div.search><input type=search id=search value="{{ esc($this->q ?? void) }}" placeholder="Search {{ strtolower($this->titleRecord) }}..."><i.icon.zoom/></div>
 view filterField: <select.filter id=filter><option value=""{( $this->f ? void : ' selected' )}>⚐ Filter:{{ loop($this->filters, fn($f, $key) => '<option value="'.$key.($this->f === $key ? '" selected>' : '">').'⚐ '.$f['title'], void) }}</select>
-view sortField: <select.sort id=sort><option value=""{( $this->o ? void : ' selected' )}>⚐ Sortering:{{ loop($this->sorts, fn($s, $key) => '<option value="'.$key.($this->o === $key ? '" selected>' : '">').'&#8645; '.$s['title'], void) }}</select>
+view sortField: <select.sort id=sort><option value=""{( $this->o ? void : ' selected' )}>⚐ Sort:{{ loop($this->sorts, fn($s, $key) => '<option value="'.$key.($this->o === $key ? '" selected>' : '">').'&#8645; '.$s['title'], void) }}</select>
 
 view header:
 <header>
@@ -116,7 +116,8 @@ on('mousedown', 'section.list.default td.label.link', (cell, e) => {
 	if (e.button === 2) return
 	e.preventDefault()
 	const parent = (el = cell.closest('[data-parent]')) ? `${el.dataset.parent}/` : ''
-	const url = `${CMSbase}${parent}${cell.closest('[data-record]').dataset.record}/${cell.closest('[data-id]').dataset.id}`
+	const open = cell.closest('[data-open="edit"]') ? 'change/' : ''
+	const url = `${CMSbase}${open}${parent}${cell.closest('[data-record]').dataset.record}/${cell.closest('[data-id]').dataset.id}`
 	if (e.shiftKey || e.ctrlKey || e.button === 1) window.open(url)
 	else app.get(url)
 })

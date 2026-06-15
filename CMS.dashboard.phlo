@@ -3,9 +3,11 @@ route both GET {
 	main($this->view)
 }
 
+prop bi => class_exists('CMS_dashboard_bi') ? %CMS_dashboard_bi : void
+
 view:
 <h1>%app->title Dashboard</h1>
-%CMS_dashboard_bi$this->widgets
+$this->bi$this->widgets
 
 view widgets {
 	if (!$widgets = array_merge(...array_filter(loop(%app->models, fn($model) => method_exists($model, 'objWidgets') ? loop($model::objWidgets(), fn($widget) => phlo("widget_$widget->type", ...$widget)) : null)))) return
@@ -41,15 +43,14 @@ on('resize', window, () => last(delay('resizeWidgets', 100, () => objects('#widg
 
 <style>
 #widgets {
-	display: flex
-	flex-wrap: wrap
+	display: grid
 	gap: 1rem
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))
 	> figure {
 		background: $surface
 		border-radius: 9px
-		flex: 1 1 30%
 		margin: 0
-		min-width: 300px
+		min-width: 0
 		opacity: .2
 		transition: 500ms ease-in
 		\.init: opacity: 1
