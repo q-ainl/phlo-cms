@@ -1,0 +1,51 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional WYSIWYG field styling: framed editor with a toolbar
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field wysiwyg editor css opt-in
+
+<style>
+.input.wysiwyg > .wysiwyg-container {
+	display: flex
+	flex-direction: column
+	gap: 0
+	border: 1px solid $border
+	border-radius: 6px
+	padding: 0
+	background: $surface
+}
+.wysiwyg-container .toolbar {
+	display: flex
+	gap: .25rem
+	padding: .25rem
+	background: $surface
+	border-bottom: 1px solid $border
+	border-top-left-radius: 6px
+	border-top-right-radius: 6px
+	button {
+		background: $surface
+		border: 1px solid transparent
+		color: $text
+		cursor: pointer
+		min-width: 28px
+		height: 28px
+		padding: 0
+		border-radius: 4px
+		b, i, u: font-family: 'Times New Roman', serif
+		\:hover {
+			background: $primary
+			border-color: $primary
+		}
+	}
+}
+.wysiwyg-container .editor {
+	min-height: 200px
+	padding: .5rem
+	white-space: normal
+	outline: none
+	a: cursor: pointer
+}
+.wysiwyg-container textarea.hidden-value: display: none
+</style>

@@ -1,0 +1,15 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional child relation styling: scrollable list of linked records
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field relation child css opt-in
+
+<style>
+.label.child {
+	max-height: 100px
+	overflow-y: auto
+	a: display: block
+}
+</style>

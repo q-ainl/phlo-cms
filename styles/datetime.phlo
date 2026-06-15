@@ -1,0 +1,18 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional datetime field styling: align the freshness clock icon with the timestamp
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field datetime css opt-in
+
+<style>
+.label.datetime {
+	white-space: nowrap
+	.icon {
+		float: left
+		margin-right: .4rem
+		margin-top: .15em
+	}
+}
+</style>

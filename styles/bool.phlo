@@ -1,0 +1,47 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional bool field styling: render the checkbox as a toggle switch
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field bool css opt-in
+
+<style>
+.label.bool: text-align: center
+.input.bool {
+	justify-content: center
+	label {
+		position: relative
+		display: inline-block
+		width: 42px
+		height: 24px
+	}
+	input {
+		opacity: 0
+		width: 0
+		height: 0
+		\:checked + .slider: background: $primary
+		\:checked + .slider:before: transform: translateX(18px)
+	}
+	.slider {
+		position: absolute
+		inset: 0
+		cursor: pointer
+		background: $surface
+		border: 1px solid $border
+		border-radius: 20px
+		transition: .3s
+		\:before {
+			content: ""
+			position: absolute
+			height: 16px
+			width: 16px
+			left: 3px
+			top: 3px
+			background: $text
+			border-radius: 50%
+			transition: .3s
+		}
+	}
+}
+</style>

@@ -1,0 +1,15 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional many-to-many relation styling: wrapped list of linked records
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field relation many css opt-in
+
+<style>
+.label.many: flex-wrap: wrap
+.label.many a {
+	display: block
+	width: 100%
+}
+</style>

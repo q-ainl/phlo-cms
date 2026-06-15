@@ -1,0 +1,11 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional number/price field styling: right-align values and inputs
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field number price css opt-in
+
+<style>
+.label.number, .label.price, .input.number input, .input.price input: text-align: right
+</style>

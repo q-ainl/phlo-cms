@@ -1,0 +1,31 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional image field styling: centered, clickable preview
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field image css opt-in
+
+<style>
+.input.image {
+	display: block !important
+	text-align: center
+	.image {
+		cursor: pointer
+		max-width: 100%
+		border-radius: 6px
+	}
+	.image-input: display: none
+	input[type="checkbox"]: width: initial !important
+}
+.label.image img {
+	border-radius: 4px
+	vertical-align: middle
+}
+.preview.image: text-align: center
+.preview.image img.preview {
+	border-radius: 8px
+	max-height: 280px
+	max-width: 100%
+}
+</style>

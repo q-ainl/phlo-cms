@@ -1,0 +1,26 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional file field styling: clickable file row, hidden native input
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field file css opt-in
+
+<style>
+.input.file {
+	display: block !important
+	.file {
+		cursor: pointer
+		display: flex
+		gap: .25rem
+		align-items: center
+	}
+	.file-input: display: none
+	input[type="checkbox"]: width: initial !important
+}
+.label.file a {
+	align-items: center
+	display: inline-flex
+	gap: .35rem
+}
+</style>

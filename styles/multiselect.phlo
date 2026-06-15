@@ -1,0 +1,22 @@
+@ version:  1.0
+@ creator:  q-ai.nl
+@ summary:  Optional multiselect field styling: render the chosen values as pills
+@ package:  CMS
+@ frontend: true
+@ backend:  false
+@ tags:     cms field multiselect css opt-in
+
+<style>
+.label.multiselect {
+	display: flex
+	flex-wrap: wrap
+	gap: .35rem
+}
+.label.multiselect .ms-tag {
+	background: $border
+	border-radius: 999px
+	font-size: .85em
+	padding: .1rem .55rem
+	white-space: nowrap
+}
+</style>
