@@ -56,18 +56,18 @@ view toggle: <div#menuToggle title=Toggle+menu/>
 view tools:
 <div.cms-tools>
 	<div.cms-tool>
-		<button.cms-tool-toggle type=button title=Thema aria-label=Thema><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2><circle cx=12 cy=12 r=9/><path d="M12 3a9 9 0 0 1 0 18z" fill=currentColor stroke=none/></svg></button>
+		<button.cms-tool-toggle type=button title=Theme aria-label=Theme><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2><circle cx=12 cy=12 r=9/><path d="M12 3a9 9 0 0 1 0 18z" fill=currentColor stroke=none/></svg></button>
 		<div.cms-pop.cms-pop-list>
-			<a href="/set/theme" data-name="" class="async cms-theme{( %app->theme ? void : ' is-active' )}">Standaard</a>
+			<a href="/set/theme" data-name="" class="async cms-theme{( %app->theme ? void : ' is-active' )}">Default</a>
 			<foreach files(www, 'theme.*.css') AS $file>
 			<a href="/set/theme/{{ $this->assetName($file) }}" data-name="{{ $this->assetName($file) }}" class="async cms-theme{( %app->theme === $this->assetName($file) ? ' is-active' : void )}">{{ ucfirst($this->assetName($file)) }}</a>
 			</foreach>
 		</div>
 	</div>
 	<div.cms-tool>
-		<button.cms-tool-toggle type=button title=Animatie aria-label=Animatie><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><path d="M3 8h14l-4-4"/><path d="M21 16H7l4 4"/></svg></button>
+		<button.cms-tool-toggle type=button title=Animation aria-label=Animation><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><path d="M3 8h14l-4-4"/><path d="M21 16H7l4 4"/></svg></button>
 		<div.cms-pop.cms-pop-list>
-			<a href="/set/trans" data-name="" class="async cms-trans{( %app->trans ? void : ' is-active' )}">Standaard</a>
+			<a href="/set/trans" data-name="" class="async cms-trans{( %app->trans ? void : ' is-active' )}">Default</a>
 			<foreach files(www, 'trans.*.css') AS $file>
 			<a href="/set/trans/{{ $this->assetName($file) }}" data-name="{{ $this->assetName($file) }}" class="async cms-trans{( %app->trans === $this->assetName($file) ? ' is-active' : void )}">{{ ucfirst($this->assetName($file)) }}</a>
 			</foreach>
