@@ -66,8 +66,7 @@ Question:
 --
 $q
 --
-Return a JSON object only.
-{{ void }}
+Return a JSON object only.\n
 Provide the following values:
 -title (short title describing what is being searched for)
 -model (not to be confused with the table name, this is singular!!)
@@ -75,10 +74,8 @@ Provide the following values:
 -joins (optional; string)
 -order (optional, the part after " ORDER BY ")
 -group (optional, the part after " GROUP BY ")
--limit (optional, the part after " LIMIT ")
-{{ void }}
-Structure:
-{{ void }}
+-limit (optional, the part after " LIMIT ")\n
+Structure:\n
 $struct
 It is currently {{ date('j-n-Y H:i') }}.
 
