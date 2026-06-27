@@ -29,7 +29,11 @@ method fromBI($res = null, $token = null){
 	%app->active = $model
 	$title = (string)($res['title'] ?? $model)
 	unset($res['title'], $res['model'], $res['usage'])
-	$res = array_filter($res)
+	# Pin the query to the model: only allow clause keys, never a table/columns/joins override (those would
+	# let the LLM read an arbitrary table). NOTE: where/order/group are still raw LLM SQL on the pinned table,
+	# so a crafted question can still inject (e.g. UNION) within that table scope; a structured, column-validated
+	# query builder is the proper fix (follow-up).
+	$res = array_intersect_key(array_filter($res), array_flip(['where', 'order', 'group', 'limit']))
 	$res['limit'] ??= 500
 	try {
 		$records = $model::records(...$res)
