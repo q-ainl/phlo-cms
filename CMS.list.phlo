@@ -2,6 +2,7 @@
 
 route both GET $list $options=* {
 	if (($options && !str_contains($options, eq)) || !$model = CMS::uriListFind($list)) return false
+	if (!$model::canView()) return false
 	%app->active = $model
 	$CMS = CMS($model, 'list')
 	$options === 'debug' && dx($model, $CMS)

@@ -26,13 +26,14 @@ method fromBI($res = null, $token = null){
 	$res ??= first($this->searches->$token, $this->searches->$token['usage'] = ($this->searches->$token['usage'] ?? 0) + 1, $this->searches->objChanged = true)
 	$model = $res['model'] ?? null
 	if (!$model || !in_array($model, %app->models)) return $this->fail('Could not understand that query')
+	if (!$model::canView()) return $this->fail('No access to that data')
 	%app->active = $model
 	$title = (string)($res['title'] ?? $model)
 	unset($res['title'], $res['model'], $res['usage'])
 	# Pin the query to the model: only allow clause keys, never a table/columns/joins override (those would
-	# let the LLM read an arbitrary table). NOTE: where/order/group are still raw LLM SQL on the pinned table,
-	# so a crafted question can still inject (e.g. UNION) within that table scope; a structured, column-validated
-	# query builder is the proper fix (follow-up).
+	# let the LLM read an arbitrary table). NOTE: where/order/group are still RAW LLM SQL, so a crafted
+	# question can still inject (e.g. a UNION SELECT that reads OTHER tables); the proper fix is a structured,
+	# column-validated query builder (see security-followup-plan.md, H-5).
 	$res = array_intersect_key(array_filter($res), array_flip(['where', 'order', 'group', 'limit']))
 	$res['limit'] ??= 500
 	try {
@@ -56,7 +57,7 @@ view:
 </form>
 
 view datalist {
-	$searches = $this->searches->objData
+	$searches = array_filter($this->searches->objData, fn($s) => in_array($s['model'] ?? '', %app->models, true))
 	uasort($searches, fn($a, $b) => ($b['usage'] ?? 0) <=> ($a['usage'] ?? 0))
 	$options = loop($searches, fn($search, $token) => tag('option', value: $search['title'], data_uri: ($search['model']::$uriList ?? $search['model']::$table).slash.$token), lf)
 	return tag('datalist', id: 'searches', inner: indentView("\n$options\n"))

@@ -30,6 +30,7 @@ route async PUT api $record $id $fieldName $childId {
 	$this->model = $field->obj
 	$this->id = $childId
 	$this->record = $this->model::record(id: $childId)
+	if (!$this->record || (string)$this->record->{$parent} !== (string)$id) return false
 	if (!$this->model::canChange($this->record)) return apply(error: 'Not allowed')
 	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
 }
@@ -69,6 +70,7 @@ route async DELETE api $record $id $fieldName $childId {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	$this->record = $this->model::record(id: $childId)
+	if (!$this->record || (string)$this->record->{$parent} !== (string)$id) return false
 	if (!$this->model::canDelete($this->record)) return apply(error: 'Not allowed')
 	$this->event('beforeDelete')
 	$field->obj::delete('id=?', $childId)

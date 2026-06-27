@@ -2,6 +2,7 @@
 
 route both GET $record $id $debug? {
 	if (!$model = CMS::uriRecordFind($record)) return false
+	if (!$model::canView()) return false
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id)
 	$debug && dx($model, $CMS)
