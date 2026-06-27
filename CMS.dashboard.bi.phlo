@@ -7,7 +7,7 @@ route async POST bi @q {
 	trim(%payload->q) || error('Describe what you are looking for')
 	if (($search = array_filter(loop($this->searches->objData, fn($search, $token) => $search['title'] === %payload->q ? $search : null))) && ($token = key($search))) return $this->fromBI($search[$token], $token)
 	$token = token(input: %payload->q)
-	$res = $this->searches->$token ??= array_filter(json_decode(%AI->chat(model: %AI->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".$model::columns(), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
+	$res = $this->searches->$token ??= array_filter(json_decode(%AI->chat(model: %AI->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".implode(', ', $this->modelColumns($model)), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
 	$this->pruneCache()
 	$this->fromBI($res, $token)
 }
@@ -29,21 +29,68 @@ method fromBI($res = null, $token = null){
 	if (!$model::canView()) return $this->fail('No access to that data')
 	%app->active = $model
 	$title = (string)($res['title'] ?? $model)
-	unset($res['title'], $res['model'], $res['usage'])
-	# Pin the query to the model: only allow clause keys, never a table/columns/joins override (those would
-	# let the LLM read an arbitrary table). NOTE: where/order/group are still RAW LLM SQL, so a crafted
-	# question can still inject (e.g. a UNION SELECT that reads OTHER tables); the proper fix is a structured,
-	# column-validated query builder (see security-followup-plan.md, H-5).
-	$res = array_intersect_key(array_filter($res), array_flip(['where', 'order', 'group', 'limit']))
-	$res['limit'] ??= 500
 	try {
-		$records = $model::records(...$res)
+		$records = $this->buildQuery($model, $res)
 	} catch (\Throwable $e){
 		return $this->fail('That query could not be run')
 	}
 	$CMS = CMS($model, 'list', records: $records)
 	$CMS->title = esc($title)
 	main($CMS, $title, path: "$CMS->uri/$token")
+}
+
+# Real (DB-backed) column names of a model, used both to brief the LLM and to validate its choices.
+method modelColumns($model){
+	$cols = []
+	foreach ($model::fields() AS $field) foreach ((array)$field->objColumns AS $col) $cols[$col] = true
+	return array_keys($cols)
+}
+
+# Build a fully parameterized SELECT from the LLM's STRUCTURED filters: every column is validated against the
+# model's real columns and identifier-quoted, every value is a bound (?) parameter, and the operator comes from
+# a closed allowlist. No LLM text ever reaches the SQL string, so injection (UNION etc.) is impossible. An
+# unknown column/operator throws -> fromBI catches -> fail(). Returns model records.
+method buildQuery($model, $res){
+	$valid = array_flip($this->modelColumns($model))
+	$fq = $model::DB()->fieldQuotes
+	$qcol = fn($c) => $fq.str_replace($fq, $fq.$fq, (string)$c).$fq
+	$ops = ['=' => '=', '!=' => '!=', '<>' => '!=', '>' => '>', '>=' => '>=', '<' => '<', '<=' => '<=', 'like' => 'LIKE']
+	$conds = []
+	$binds = []
+	foreach ((array)($res['filters'] ?? []) AS $f){
+		$col = (string)($f['column'] ?? '')
+		isset($valid[$col]) || error("Unknown column: $col")
+		$op = strtolower((string)($f['op'] ?? '='))
+		$qc = $qcol($col)
+		if ($op === 'null') $conds[] = "$qc IS NULL"
+		elseif ($op === 'notnull') $conds[] = "$qc IS NOT NULL"
+		elseif ($op === 'in'){
+			($vals = array_values((array)($f['value'] ?? []))) || error('in needs values')
+			$conds[] = "$qc IN (".implode(comma, array_fill(0, count($vals), qm)).")"
+			array_push($binds, ...$vals)
+		}
+		elseif ($op === 'between'){
+			count($vals = array_slice(array_values((array)($f['value'] ?? [])), 0, 2)) === 2 || error('between needs two values')
+			$conds[] = "$qc BETWEEN ? AND ?"
+			array_push($binds, ...$vals)
+		}
+		elseif (isset($ops[$op])){
+			$conds[] = "$qc $ops[$op] ?"
+			$binds[] = $f['value'] ?? null
+		}
+		else error('Unknown operator')
+	}
+	$table = $fq.$model::$table.$fq
+	$sql = 'SELECT '.$table.'.* FROM '.$table
+	$conds && $sql .= ' WHERE '.implode(' AND ', $conds)
+	$order = $res['order'] ?? null
+	$oc = $order ? (string)($order['column'] ?? '') : ''
+	if ($oc !== '' && isset($valid[$oc])){
+		$dir = strtoupper((string)($order['dir'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC'
+		$sql .= ' ORDER BY '.$qcol($oc).space.$dir
+	}
+	$sql .= ' LIMIT '.min(500, max(1, (int)($res['limit'] ?? 100)))
+	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_CLASS, $model)
 }
 
 method fail($message) => %req->async ? apply(error: $message) : main(tag('section', tag('h1', 'Search failed').tag('p', esc($message).dot)), 'Search failed')
@@ -64,23 +111,19 @@ view datalist {
 }
 
 view prompt($struct, $q):
-You are a BI operator able to return exactly the requested information for building queries.
-Below is a MySQL table structure. Return the required fields to build a valid query.
-Never invent columns that are not listed in the structure!!
+You translate a natural-language question into a structured database query. Do not write SQL.
+Return only a JSON object with these keys:
+-title: a short title describing the search
+-model: the singular model name, chosen from the list below
+-filters: an array of objects, each with "column" (a column of the chosen model), "op" (one of: = != > >= < <= like in between null notnull) and "value" (the value; use an array for in and between; omit for null and notnull)
+-order: optional, an object with "column" (a column) and "dir" ("asc" or "desc")
+-limit: optional integer, at most 500
+Use only the columns listed for the chosen model. Never invent columns and never return SQL.
 Question:
 --
 $q
 --
-Return a JSON object only.\n
-Provide the following values:
--title (short title describing what is being searched for)
--model (not to be confused with the table name, this is singular!!)
--where (optional, the part after " WHERE ")
--joins (optional; string)
--order (optional, the part after " ORDER BY ")
--group (optional, the part after " GROUP BY ")
--limit (optional, the part after " LIMIT ")\n
-Structure:\n
+Models and their columns:
 $struct
 It is currently {{ date('j-n-Y H:i') }}.
 
