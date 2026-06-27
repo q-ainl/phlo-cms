@@ -2,7 +2,7 @@ route async POST api $record {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!$this->model = CMS::uriRecordFind($record)) return false
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
-	$this->record = phlo($this->model)
+	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))))
 	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$this->record->id)
 }
 
@@ -11,7 +11,7 @@ route async POST api $record $id $fieldName {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
-	$this->record = phlo($this->model, ...[$parent => $id])
+	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[$parent => $id])
 	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$this->record->id)
 }
 
