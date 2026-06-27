@@ -27,7 +27,7 @@ method fromBI($res = null, $token = null){
 	$model = $res['model'] ?? null
 	if (!$model || !in_array($model, %app->models)) return $this->fail('Could not understand that query')
 	%app->active = $model
-	$title = $res['title'] ?? $model
+	$title = esc((string)($res['title'] ?? $model))
 	unset($res['title'], $res['model'], $res['usage'])
 	$res = array_filter($res)
 	$res['limit'] ??= 500
