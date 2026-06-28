@@ -11,7 +11,7 @@ route async POST api $record $id $fieldName {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
-	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[$parent => $id])
+	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[($field->key ?? $parent) => $id])
 	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$this->record->id)
 }
 
@@ -30,7 +30,7 @@ route async PUT api $record $id $fieldName $childId {
 	$this->model = $field->obj
 	$this->id = $childId
 	$this->record = $this->model::record(id: $childId)
-	if (!$this->record || (string)$this->record->{$parent} !== (string)$id) return false
+	if (!$this->record || (string)$this->record->{$field->key ?? $parent} !== (string)$id) return false
 	if (!$this->model::canChange($this->record)) return apply(error: 'Not allowed')
 	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
 }
@@ -70,7 +70,7 @@ route async DELETE api $record $id $fieldName $childId {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	$this->record = $this->model::record(id: $childId)
-	if (!$this->record || (string)$this->record->{$parent} !== (string)$id) return false
+	if (!$this->record || (string)$this->record->{$field->key ?? $parent} !== (string)$id) return false
 	if (!$this->model::canDelete($this->record)) return apply(error: 'Not allowed')
 	$this->event('beforeDelete')
 	$field->obj::delete('id=?', $childId)
@@ -85,14 +85,18 @@ prop fieldsPatch($name) => array_filter($this->fields, fn($field) => $field->han
 
 method checkRequired {
 	$required = []
-	foreach ($this->fieldsRequired AS $column => $field) %payload->$column || $this->record->$column || $required[] = $field
+	foreach ($this->fieldsRequired AS $column => $field){
+		$value = %payload->$column ?? $this->record->$column
+		if ($value === null || $value === '') $required[] = $field
+	}
 	return $required ?: true
 }
 
 method parsePayload($fields) => loop($fields, [$this, 'parsePayloadField'])
 method parsePayloadField($field, $column){
+	if (!$this->writable($field)) return
 	if ($field->has('parse')) $field->parse($this->record)
-	elseif ($this->writable($field) && ($value = %payload->$column)) $this->record->$column = $value
+	elseif (%payload->hasData($column)) $this->record->$column = %payload->$column
 }
 method writable($field) => (%req->method === 'POST' ? $field->create : $field->change) !== false
 method fieldsMany => array_filter($this->model::fields(), fn($field) => $field->type === 'many' && $this->writable($field))

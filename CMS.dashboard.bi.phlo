@@ -95,7 +95,7 @@ method buildQuery($model, $res){
 		$sql .= ' ORDER BY '.$qcol($oc).space.$dir
 	}
 	$sql .= ' LIMIT '.min(500, max(1, (int)($res['limit'] ?? 100)))
-	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_CLASS, $model)
+	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_CLASS|\PDO::FETCH_UNIQUE, $model)
 }
 
 method fail($message) => %req->async ? apply(error: $message) : main(tag('section', tag('h1', 'Search failed').tag('p', esc($message).dot)), 'Search failed')
