@@ -37,6 +37,12 @@ method fromBI($res = null, $token = null){
 	try {
 		$records = $this->buildQuery($model, $res)
 	} catch (\Throwable $e){
+		# The model was valid but the structure (column/operator) was not; drop it from the cache so the
+		# same deterministic token does not fail forever and is re-asked next time.
+		if ($token && isset($this->searches->$token)){
+			unset($this->searches->$token)
+			$this->searches->objChanged = true
+		}
 		return $this->fail('That query could not be run')
 	}
 	$CMS = CMS($model, 'list', records: $records)
