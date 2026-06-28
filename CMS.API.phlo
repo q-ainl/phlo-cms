@@ -11,7 +11,7 @@ route async POST api $record $id $fieldName {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
-	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[($field->key ?? $parent) => $id])
+	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[$field->objKey($parent) => $id])
 	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$this->record->id)
 }
 
@@ -30,7 +30,7 @@ route async PUT api $record $id $fieldName $childId {
 	$this->model = $field->obj
 	$this->id = $childId
 	$this->record = $this->model::record(id: $childId)
-	if (!$this->record || (string)$this->record->{$field->key ?? $parent} !== (string)$id) return false
+	if (!$this->record || !$field->objOwns($this->record, $id, $parent)) return false
 	if (!$this->model::canChange($this->record)) return apply(error: 'Not allowed')
 	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
 }
@@ -70,7 +70,7 @@ route async DELETE api $record $id $fieldName $childId {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	$this->record = $this->model::record(id: $childId)
-	if (!$this->record || (string)$this->record->{$field->key ?? $parent} !== (string)$id) return false
+	if (!$this->record || !$field->objOwns($this->record, $id, $parent)) return false
 	if (!$this->model::canDelete($this->record)) return apply(error: 'Not allowed')
 	$this->event('beforeDelete')
 	$field->obj::delete('id=?', $childId)
