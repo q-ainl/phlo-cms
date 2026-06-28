@@ -2,6 +2,7 @@
 
 route both GET create $record $debug? {
 	if (!$model = CMS::uriRecordFind($record)) return false
+	if (!$model::canCreate()) return false
 	%app->active = $model
 	$CMS = CMS($model, 'create')
 	$debug && dx($model, $CMS)
@@ -10,6 +11,7 @@ route both GET create $record $debug? {
 
 route both GET create $record $id $fieldName $debug? {
 	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
+	if (!$model::canView() || !$field->obj::canCreate()) return false
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, childMode: 'create', hideBody: true)
 	$debug && dx($model, $CMS, $field)

@@ -2,17 +2,20 @@
 
 route both GET change $record $id $debug? {
 	if (!$model = CMS::uriRecordFind($record)) return false
+	if (!$model::canView()) return false
 	%app->active = $model
 	$CMS = CMS($model, 'change', id: $id)
 	$debug && dx($model, $CMS)
 	if (!$CMS->record) return main(tag('section', tag('h1', 'Not found').tag('p', 'This record no longer exists.')), 'Not found')
+	if (!$model::canChange($CMS->record)) return false
 	main($CMS, $CMS->title)
 }
 
 route both GET change $record $id $fieldName $childId $debug? {
 	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !is_a($field, 'field_child')) return false
+	if (!$model::canView() || !$field->obj::canView()) return false
 	$child = $field->obj::record(id: $childId)
-	if (!$child || !$field->objOwns($child, $id, $model)) return false
+	if (!$child || !$field->objOwns($child, $id, $model) || !$field->obj::canChange($child)) return false
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, childId: $childId, childMode: 'change', hideBody: true)
 	$debug && dx($model, $CMS, $field, $childId)

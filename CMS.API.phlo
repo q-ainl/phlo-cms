@@ -9,6 +9,7 @@ route async POST api $record {
 route async POST api $record $id $fieldName {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
+	if (!$parent::canView() || !$parent::record(id: $id)) return false
 	$this->model = $field->obj
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
 	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[$field->objKey($parent) => $id])
@@ -94,9 +95,12 @@ method checkRequired {
 
 method parsePayload($fields) => loop($fields, [$this, 'parsePayloadField'])
 method parsePayloadField($field, $column){
-	if (!$this->writable($field)) return
-	if ($field->has('parse')) $field->parse($this->record)
-	elseif (%payload->hasData($column)) $this->record->$column = %payload->$column
+	if ($field->has('parse')){
+		# Run a parser when the field manages its own value (handle: token, timestamps) or is writable;
+		# a non-writable, non-handle parser (e.g. a change:false password) must not apply payload input.
+		if ($field->handle || $this->writable($field)) $field->parse($this->record)
+	}
+	elseif ($this->writable($field) && %payload->hasData($column)) $this->record->$column = %payload->$column
 }
 method writable($field) => (%req->method === 'POST' ? $field->create : $field->change) !== false
 method fieldsMany => array_filter($this->model::fields(), fn($field) => $field->type === 'many' && $this->writable($field))

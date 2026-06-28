@@ -86,7 +86,7 @@ method buildQuery($model, $res){
 		else error('Unknown operator')
 	}
 	$table = $fq.$model::$table.$fq
-	$sql = 'SELECT '.$table.'.* FROM '.$table
+	$sql = 'SELECT '.$table.dot.$qcol($model::idColumn()).' AS _, '.$table.'.* FROM '.$table
 	$conds && $sql .= ' WHERE '.implode(' AND ', $conds)
 	$order = $res['order'] ?? null
 	$oc = $order ? (string)($order['column'] ?? '') : ''
