@@ -13,10 +13,6 @@ route both GET $record $id $debug? {
 route both GET $record $id $fieldName $childId $debug? {
 	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !(is_a($field, 'field_child') || is_a($field, 'field_many'))) return false
 	if (!$model::canView() || !$field->obj::canView()) return false
-	if (is_a($field, 'field_child')){
-		$child = $field->obj::record(id: $childId)
-		if (!$child || (string)$child->{$field->key ?? $model} !== (string)$id) return false
-	}
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, childId: $childId, childMode: 'record', hideBody: true)
 	$debug && dx($model, $CMS, $field, $childId)
