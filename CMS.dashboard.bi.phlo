@@ -7,7 +7,12 @@ route async POST bi @q {
 	trim(%payload->q) || error('Describe what you are looking for')
 	if (($search = array_filter(loop($this->searches->objData, fn($search, $token) => $search['title'] === %payload->q ? $search : null))) && ($token = key($search))) return $this->fromBI($search[$token], $token)
 	$token = token(input: %payload->q)
-	$res = $this->searches->$token ??= array_filter(json_decode(%AI->chat(model: %AI->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".implode(', ', $this->modelColumns($model)), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
+	$res = $this->searches->$token
+	if ($res === null){
+		$parsed = array_filter((array)json_decode(%AI->chat(model: %AI->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".implode(', ', $this->modelColumns($model)), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
+		if (!in_array($parsed['model'] ?? null, %app->models, true)) return $this->fail('Could not understand that query')
+		$res = $this->searches->$token = $parsed
+	}
 	$this->pruneCache()
 	$this->fromBI($res, $token)
 }
