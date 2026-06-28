@@ -1,1 +1,11 @@
 .claude/
+/vendor/
+/.phpunit.cache/
+
+# BI test fixture build output (generated app.json + compiled PHP/assets)
+tests/fixtures/bi/php/
+tests/fixtures/bi/www/app.css
+tests/fixtures/bi/www/app.js
+tests/fixtures/bi/data/errors.json
+tests/fixtures/bi/data/bi.json
+tests/fixtures/bi/data/app.json

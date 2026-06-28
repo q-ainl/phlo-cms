@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         failOnWarning="true"
+         displayDetailsOnTestsThatTriggerWarnings="true">
+    <testsuites>
+        <testsuite name="cms">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

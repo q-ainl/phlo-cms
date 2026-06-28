@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Phlo engine the CMS compiles and runs against, checked out into the workspace and pinned
+      # to a commit so the test is deterministic - bump when the engine<->CMS contract changes. The
+      # CMS does not vendor the engine; the test resolves it via PHLO_ENGINE_PATH.
+      - name: Check out the Phlo engine
+        uses: actions/checkout@v4
+        with:
+          repository: q-ainl/phlo
+          ref: 7712c37102bec5325f61b92fd5c718f8091c3b80
+          path: engine
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo, sodium
+          tools: phpunit:^11
+          coverage: none
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Run tests
+        env:
+          PHLO_ENGINE_PATH: ${{ github.workspace }}/engine
+        run: phpunit
