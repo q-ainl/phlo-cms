@@ -1,0 +1,24 @@
+{
+    "resources": [
+        "DB/DB",
+        "DB/model",
+        "DB/SQLite",
+        "CMS",
+        "CMS.API",
+        "fields/field",
+        "fields/text",
+        "fields/number",
+        "security/CSRF",
+        "security/security",
+        "security/token",
+        "session",
+        "cookies",
+        "payload",
+        "create",
+        "tag",
+        "phlo.exists"
+    ],
+    "paths": {
+        "resources": ["__CMS_ROOT__"]
+    }
+}

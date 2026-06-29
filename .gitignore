@@ -9,3 +9,11 @@ tests/fixtures/bi/www/app.js
 tests/fixtures/bi/data/errors.json
 tests/fixtures/bi/data/bi.json
 tests/fixtures/bi/data/app.json
+
+# CMS HTTP test fixture build output (generated app.json + compiled PHP/assets + SQLite file)
+tests/fixtures/cmshttp/php/
+tests/fixtures/cmshttp/www/app.css
+tests/fixtures/cmshttp/www/app.js
+tests/fixtures/cmshttp/data/errors.json
+tests/fixtures/cmshttp/data/app.json
+tests/fixtures/cmshttp/data/test.db

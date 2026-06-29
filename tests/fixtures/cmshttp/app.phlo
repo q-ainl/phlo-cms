@@ -1,0 +1,17 @@
+static %model.DB => %SQLite(data.'test.db')
+
+prop title = 'CMS HTTP test fixture'
+prop models = ['post', 'locked']
+
+static setup {
+	post::prepareTable()
+	locked::prepareTable()
+	return 'ok'
+}
+
+route GET csrf => view('ok')
+
+if (app::route()) return
+return output(['error' => 'not found'], code: 404)
+
+view head: %CSRF

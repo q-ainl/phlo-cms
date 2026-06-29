@@ -1,0 +1,17 @@
+@ class:   locked
+@ extends: model
+
+static table = 'locked'
+
+static canDelete => false
+
+static schema => arr(
+	id: field(type: 'number', title: 'ID'),
+	title: field(type: 'text', title: 'Title'),
+)
+
+static prepareTable {
+	static::DB()->query('DROP TABLE IF EXISTS locked')
+	static::DB()->query('CREATE TABLE locked (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT)')
+	static::create(title: 'permanent')
+}
