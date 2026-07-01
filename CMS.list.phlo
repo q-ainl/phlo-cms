@@ -119,7 +119,7 @@ on('mousedown', 'section.list.default td.label.link', (cell, e) => {
 	const parent = (el = cell.closest('[data-parent]')) ? `${el.dataset.parent}/` : ''
 	const open = cell.closest('[data-open="edit"]') ? 'change/' : ''
 	const url = `${CMSbase}${open}${parent}${cell.closest('[data-record]').dataset.record}/${cell.closest('[data-id]').dataset.id}`
-	if (e.shiftKey || e.ctrlKey || e.button === 1) window.open(url)
+	if (e.shiftKey || e.ctrlKey || e.button === 1) window.open(new URL(url, location.origin).href)
 	else app.get(url)
 })
 on('mouseover', 'section.list.default td', td => !!app.mod.class(td.closest('table').querySelectorAll(`td:nth-child(${Array.from(td.parentElement.children).indexOf(td) + 1})`), 'active'))

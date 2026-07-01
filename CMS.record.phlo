@@ -7,7 +7,7 @@ route both GET $record $id $debug? {
 	$CMS = CMS($model, 'record', id: $id)
 	$debug && dx($model, $CMS)
 	if (!$CMS->record) return main(tag('section', tag('h1', 'Not found').tag('p', 'This record no longer exists.')), 'Not found')
-	main($CMS, $CMS->title)
+	return main($CMS, $CMS->title)
 }
 
 route both GET $record $id $fieldName $childId $debug? {
@@ -18,7 +18,7 @@ route both GET $record $id $fieldName $childId $debug? {
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, childId: $childId, childMode: 'record', hideBody: true)
 	$debug && dx($model, $CMS, $field, $childId)
-	main($CMS, $CMS->title)
+	return main($CMS, $CMS->title)
 }
 
 route both GET $record $id $fieldName $debug? {
@@ -27,7 +27,7 @@ route both GET $record $id $fieldName $debug? {
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, hideBody: true)
 	$debug && dx($model, $CMS, $field)
-	main($CMS, $CMS->title)
+	return main($CMS, $CMS->title)
 }
 
 prop mode = 'record'
