@@ -37,8 +37,8 @@ method fromBI($res = null, $token = null){
 	try {
 		$records = $this->buildQuery($model, $res)
 	} catch (\Throwable $e){
-		# The model was valid but the structure (column/operator) was not; drop it from the cache so the
-		# same deterministic token does not fail forever and is re-asked next time.
+		// The model was valid but the structure (column/operator) was not; drop it from the cache so the
+		// same deterministic token does not fail forever and is re-asked next time.
 		if ($token && isset($this->searches->$token)){
 			unset($this->searches->$token)
 			$this->searches->objChanged = true
@@ -50,17 +50,17 @@ method fromBI($res = null, $token = null){
 	main($CMS, $title, path: "$CMS->uri/$token")
 }
 
-# Real (DB-backed) column names of a model, used both to brief the LLM and to validate its choices.
+// Real (DB-backed) column names of a model, used both to brief the LLM and to validate its choices.
 method modelColumns($model){
 	$cols = []
 	foreach ($model::fields() AS $field) foreach ((array)$field->objColumns AS $col) $cols[$col] = true
 	return array_keys($cols)
 }
 
-# Build a fully parameterized SELECT from the LLM's STRUCTURED filters: every column is validated against the
-# model's real columns and identifier-quoted, every value is a bound (?) parameter, and the operator comes from
-# a closed allowlist. No LLM text ever reaches the SQL string, so injection (UNION etc.) is impossible. An
-# unknown column/operator throws -> fromBI catches -> fail(). Returns model records.
+// Build a fully parameterized SELECT from the LLM's STRUCTURED filters: every column is validated against the
+// model's real columns and identifier-quoted, every value is a bound (?) parameter, and the operator comes from
+// a closed allowlist. No LLM text ever reaches the SQL string, so injection (UNION etc.) is impossible. An
+// unknown column/operator throws -> fromBI catches -> fail(). Returns model records.
 method buildQuery($model, $res){
 	$valid = array_flip($this->modelColumns($model))
 	$fq = $model::DB()->fieldQuotes
