@@ -4,6 +4,10 @@ Reusable CRUD and admin layer for the [Phlo](https://github.com/q-ainl/phlo) fra
 
 Phlo CMS lives in the application layer of the [Phlo platform](https://phlo.tech/ecosystem): the same `.phlo` language and resource model as your app, mounted as a resource path through Composer. The [Phlo Dashboard](https://github.com/q-ainl/phlo-dashboard) is built on it.
 
+![A record view generated from the schema: cover, relations, status and audience](.github/record.png)
+
+See it running in the [Phlo CMS demo](https://github.com/q-ainl/phlo-demo-cms), a complete blog with a committed dataset.
+
 ## Features
 
 - **Schema driven CRUD**: one model definition yields list, record, create and edit views.
@@ -64,6 +68,8 @@ Values are `'view'` (default) or `'edit'`. The view route stays reachable either
 A model is a Phlo class (usually `extends model`) with a `static schema()` returning `field()` definitions. Everything else is optional and overrides a sensible default.
 
 ### Schema and fields
+
+![The generated edit form: every field rendered and validated from the schema](.github/edit.png)
 
 ```phlo
 static schema => arr (
