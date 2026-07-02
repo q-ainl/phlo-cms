@@ -14,7 +14,7 @@ route both GET change $record $id $debug? {
 route both GET change $record $id $fieldName $childId $debug? {
 	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !is_a($field, 'field_child')) return false
 	if (!$model::canView() || !$field->obj::canView()) return false
-	$child = $field->obj::record(id: $childId)
+	$child = $field->obj::record(...[$field->obj::idColumn() => $childId])
 	if (!$child || !$field->objOwns($child, $id, $model) || !$field->obj::canChange($child)) return false
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, childId: $childId, childMode: 'change', hideBody: true)

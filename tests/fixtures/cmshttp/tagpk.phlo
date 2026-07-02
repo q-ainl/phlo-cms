@@ -1,0 +1,16 @@
+@ class:   tagpk
+@ extends: model
+
+static table = 'tagpks'
+static idColumn = 'code'
+
+static schema => arr(
+	code: field(type: 'text', title: 'Code'),
+	label: field(type: 'text', title: 'Label'),
+)
+
+static prepareTable {
+	static::DB()->query('DROP TABLE IF EXISTS tagpks')
+	static::DB()->query('CREATE TABLE tagpks (code TEXT PRIMARY KEY, label TEXT)')
+	static::DB()->query("INSERT INTO tagpks (code, label) VALUES ('red', 'Red')")
+}

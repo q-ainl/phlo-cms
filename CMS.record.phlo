@@ -13,7 +13,7 @@ route both GET $record $id $debug? {
 route both GET $record $id $fieldName $childId $debug? {
 	if (!($model = CMS::uriRecordFind($record)) || !($field = $model::fields()[$fieldName] ?? null) || !(is_a($field, 'field_child') || is_a($field, 'field_many'))) return false
 	if (!$model::canView() || !$field->obj::canView()) return false
-	$child = $field->obj::record(id: $childId)
+	$child = $field->obj::record(...[$field->obj::idColumn() => $childId])
 	if (!$child || !$field->objOwns($child, $id, $model)) return false
 	%app->active = $model
 	$CMS = CMS($model, 'record', id: $id, childField: $fieldName, childId: $childId, childMode: 'record', hideBody: true)
@@ -73,7 +73,7 @@ view header:
 </header>
 
 view body:
-<div.body data-id="{{ $this->record->id }}">
+<div.body data-id="$this->recordId">
 	<foreach $this->fields AS $column => $field>
 		<div.field>
 			<label>{( $field->title ?? ucfirst($column) )}</label>

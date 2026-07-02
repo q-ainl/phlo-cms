@@ -52,7 +52,7 @@ For a more polished record/edit view, add the per-type styling resources you wan
 | `styles/multiselect` | Chosen values rendered as pills |
 | `styles/wysiwyg` | Framed editor with a toolbar |
 
-These live in a subdirectory, so they are never auto-loaded — list only the ones you want. Your own field markup and styling keep working unchanged whether or not you opt in.
+These live in a subdirectory, so they are never auto-loaded; list only the ones you want. Your own field markup and styling keep working unchanged whether or not you opt in.
 
 ## View or edit on click
 
@@ -95,17 +95,17 @@ Common field options: `title`, `required`, `length`, `default`, `placeholder`, `
 | `$uriList` / `$uriRecord` | URL segments for the list / record (default: table / class) |
 | `$titleList` / `$titleRecord` | Display titles |
 | `canCreate` / `canChange` / `canDelete` | Permission flags or methods (`canChange($record)`) |
-| `$recordMode` | `'view'` (default) or `'edit'` — see above |
+| `$recordMode` | `'view'` (default) or `'edit'`, see above |
 | `$recordView` / `$listView` / … | Load a `CMS.<mode>.<variant>` layout variant instead of the default |
 
 ### List and dashboard hooks
 
-These carry the `obj` prefix on purpose. A model `extends model`, whose magic accessor also exposes data columns, so anything the framework reads generically across every model lives in the reserved `obj*` namespace to guarantee it never collides with a column (`objFilters`, `objSorts`, `objWidgets`, alongside the ORM's `objParents` / `objChildren` / `objValidate`). The plain-named statics above (`canCreate`, `uriList`, `titleList`, `recordMode`, `order`, `pp`) are simple per-model config values, not column-shaped, so they stay unprefixed. Each `obj*` hook may be a `static` property or a `static` method — the framework accepts either.
+These carry the `obj` prefix on purpose. A model `extends model`, whose magic accessor also exposes data columns, so anything the framework reads generically across every model lives in the reserved `obj*` namespace to guarantee it never collides with a column (`objFilters`, `objSorts`, `objWidgets`, alongside the ORM's `objParents` / `objChildren` / `objValidate`). The plain-named statics above (`canCreate`, `uriList`, `titleList`, `recordMode`, `order`, `pp`) are simple per-model config values, not column-shaped, so they stay unprefixed. Each `obj*` hook may be a `static` property or a `static` method: the framework accepts either.
 
-- `static objFilters()` — named `WHERE` snippets shown as a filter dropdown: `['open' => ['title' => 'Open', 'filter' => "status='open'"]]`.
-- `static objSorts()` — named `ORDER BY` snippets shown as a sort dropdown.
-- `static objWidgets()` — dashboard widgets keyed by title: `obj(type: 'pie', data: static::pair(...))`. Widget types: `bar`, `gauge`, `line`, `list`, `pie` (list them in `resources`, and add `chart.js` for charts).
-- `static subNav()` — extra sidebar links under the model.
+- `static objFilters()`: named `WHERE` snippets shown as a filter dropdown: `['open' => ['title' => 'Open', 'filter' => "status='open'"]]`.
+- `static objSorts()`: named `ORDER BY` snippets shown as a sort dropdown.
+- `static objWidgets()`: dashboard widgets keyed by title: `obj(type: 'pie', data: static::pair(...))`. Widget types: `bar`, `gauge`, `line`, `list`, `pie` (list them in `resources`, and add `chart.js` for charts).
+- `static subNav()`: extra sidebar links under the model.
 
 ### Lifecycle hooks
 

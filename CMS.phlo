@@ -20,7 +20,11 @@ static uriRecordFind($uri) => static::uriRecords()[$uri] ?? false
 method __construct(public string $model, ...$args) => $args && $this->objImport(...$args)
 
 prop fields => array_filter($this->model::fields(), fn($field) => $field->{$this->mode} !== false && $field->name !== $this->foreignKey)
-prop record => $this->model::record(id: $this->id)
+prop record => $this->model::record(...[$this->model::idColumn() => $this->id])
+prop recordId {
+	$pk = $this->model::idColumn()
+	return $this->record->$pk
+}
 
 prop DOMtitle => $this->hideBody || ($this->parent && !$this->parent->childField) ? tag('a', $this->title, href: slash.$this->uri, class: 'async') : $this->title
 prop titleList => $this->model::$titleList ?? ucfirst($this->model::$table)

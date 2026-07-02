@@ -3,24 +3,24 @@ route async POST api $record {
 	if (!$this->model = CMS::uriRecordFind($record)) return false
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
 	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))))
-	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$this->record->id)
+	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$this->recordId)
 }
 
 route async POST api $record $id $fieldName {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
-	if (!$parent::canView() || !$parent::record(id: $id)) return false
+	if (!$parent::canView() || !$parent::record(...[$parent::idColumn() => $id])) return false
 	$this->model = $field->obj
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
 	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[$field->objKey($parent) => $id])
-	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$this->record->id)
+	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$this->recordId)
 }
 
 route async PUT api $record $id {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!$this->model = CMS::uriRecordFind($record)) return false
 	$this->id = $id
-	$this->record = $this->model::record(id: $id)
+	$this->record = $this->model::record(...[$this->idColumn => $id])
 	if (!$this->model::canChange($this->record)) return apply(error: 'Not allowed')
 	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$id)
 }
@@ -30,7 +30,7 @@ route async PUT api $record $id $fieldName $childId {
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
 	$this->id = $childId
-	$this->record = $this->model::record(id: $childId)
+	$this->record = $this->model::record(...[$this->idColumn => $childId])
 	if (!$this->record || !$field->objOwns($this->record, $id, $parent)) return false
 	if (!$this->model::canChange($this->record)) return apply(error: 'Not allowed')
 	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
@@ -40,15 +40,10 @@ route async PATCH api $model $id $fieldName {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!in_array($model, %app->models) || !($field = $model::fields()[$fieldName] ?? null)) return false
 	$this->model = $model
-	$this->record = $model::record(id: $id)
+	$this->record = $model::record(...[$this->idColumn => $id])
 	if (!$model::canChange($this->record)) return apply(error: 'Not allowed')
-	$old = clone $this->record
 	$this->parsePayload($this->fieldsPatch($fieldName))
-	$this->event('beforeChange', $old)
-	$this->event('beforeSave', $old)
 	$this->record->objSave
-	$this->event('afterChange', $old)
-	$this->event('afterSave', $old)
 	$referer = (string)($_SERVER['HTTP_REFERER'] ?? void)
 	$expectedPrefix = 'https://'.%req->host.'/'
 	location(str_starts_with($referer, $expectedPrefix) ? substr($referer, strlen('https://'.%req->host)) : (slash.$model.slash.$id))
@@ -58,11 +53,9 @@ route async DELETE api $record $id {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!$model = CMS::uriRecordFind($record)) return false
 	$this->model = $model
-	$this->record = $model::record(id: $id)
+	$this->record = $model::record(...[$this->idColumn => $id])
 	if (!$model::canDelete($this->record)) return apply(error: 'Not allowed')
-	$this->event('beforeDelete')
-	$model::delete('id=?', $id)
-	$this->event('afterDelete')
+	$model::delete($this->idColumn.'=?', $id)
 	location(slash.($model::$uriList ?? $model::$table))
 }
 
@@ -70,12 +63,10 @@ route async DELETE api $record $id $fieldName $childId {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!($parent = CMS::uriRecordFind($record)) || !($field = $parent::fields()[$fieldName] ?? null) || $field->type !== 'child') return false
 	$this->model = $field->obj
-	$this->record = $this->model::record(id: $childId)
+	$this->record = $this->model::record(...[$this->idColumn => $childId])
 	if (!$this->record || !$field->objOwns($this->record, $id, $parent)) return false
 	if (!$this->model::canDelete($this->record)) return apply(error: 'Not allowed')
-	$this->event('beforeDelete')
-	$field->obj::delete('id=?', $childId)
-	$this->event('afterDelete')
+	$field->obj::delete($this->idColumn.'=?', $childId)
 	location(slash.($parent::$uriRecord ?? $parent).slash.$id)
 }
 
@@ -104,7 +95,12 @@ method parsePayloadField($field, $column){
 }
 method writable($field) => (%req->method === 'POST' ? $field->create : $field->change) !== false
 method fieldsMany => array_filter($this->model::fields(), fn($field) => $field->type === 'many' && $this->writable($field))
-method syncMany => loop($this->fieldsMany, fn($field) => $field->sync($this->model, $this->record->id))
+prop idColumn => $this->model::idColumn()
+prop recordId {
+	$pk = $this->idColumn
+	return $this->record->$pk
+}
+method syncMany => loop($this->fieldsMany, fn($field) => $field->sync($this->model, $this->recordId))
 
 method applySave {
 	if (is_array($required = $this->checkRequired)){
@@ -116,18 +112,14 @@ method applySave {
 	foreach ($this->model::fields() AS $column => $field){
 		if ($field->type === 'many' && $this->record->hasData($column)) unset($this->record->$column)
 	}
-	$this->event('beforeSave', $old)
-	if (%req->method === 'POST'){
-		$this->event('beforeCreate')
-		$this->record = $this->model::create(...$this->record)
-		$this->event('afterCreate')
-	}
+	if (%req->method === 'POST') $this->record = $this->model::create(...$this->record)
 	if (%req->method === 'PUT'){
+		$this->event('beforeSave', $old)
 		$this->event('beforeChange', $old)
-		$this->model::change('id=?', $this->id, ...$this->record) && $this->record = $this->model::record(id: $this->id)
+		$this->model::change($this->idColumn.'=?', $this->id, ...$this->record) && $this->record = $this->model::record(...[$this->idColumn => $this->id])
 		$this->event('afterChange', $old)
+		$this->event('afterSave', $old)
 	}
 	$this->syncMany
-	$this->event('afterSave', $old)
 	return true
 }

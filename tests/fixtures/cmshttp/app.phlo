@@ -1,11 +1,13 @@
 static %model.DB => %SQLite(data.'test.db')
 
 prop title = 'CMS HTTP test fixture'
-prop models = ['post', 'locked']
+prop models = ['post', 'locked', 'tagpk', 'hooked']
 
 static setup {
 	post::prepareTable()
 	locked::prepareTable()
+	tagpk::prepareTable()
+	hooked::prepareTable()
 	return 'ok'
 }
 

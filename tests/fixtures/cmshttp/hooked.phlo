@@ -1,0 +1,34 @@
+@ class:   hooked
+@ extends: model
+
+static table = 'hookeds'
+
+static schema => arr(
+	id: field(type: 'number', title: 'ID'),
+	title: field(type: 'text', title: 'Title'),
+	slug: field(type: 'text', title: 'Slug', create: false, change: false),
+)
+
+static prepareTable {
+	static::DB()->query('DROP TABLE IF EXISTS hookeds')
+	static::DB()->query('CREATE TABLE hookeds (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, slug TEXT)')
+	file_exists(data.'hooks.json') && unlink(data.'hooks.json')
+}
+
+static bump($hook){
+	$counts = file_exists($file = data.'hooks.json') ? json_decode(file_get_contents($file), true) : []
+	$counts[$hook] = ($counts[$hook] ?? 0) + 1
+	file_put_contents($file, json_encode($counts))
+}
+
+method beforeSave($old = null) => static::bump('beforeSave')
+
+method beforeCreate {
+	static::bump('beforeCreate')
+	$this->slug = strtolower((string)$this->title)
+}
+
+method afterCreate => static::bump('afterCreate')
+method afterSave($old = null) => static::bump('afterSave')
+method beforeDelete => static::bump('beforeDelete')
+method afterDelete => static::bump('afterDelete')
