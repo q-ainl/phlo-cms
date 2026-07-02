@@ -34,7 +34,9 @@ method fromBI($res = null, $token = null){
 	if (!$model::canView()) return $this->fail('No access to that data')
 	%app->active = $model
 	$title = (string)($res['title'] ?? $model)
+	$uri = ($model::$uriList ?? $model::$table).slash.$token
 	try {
+		if (isset($res['aggregate'])) return $this->renderAggregate($model, $res, $this->buildAggregate($model, $res), $title, $uri)
 		$records = $this->buildQuery($model, $res)
 	} catch (\Throwable $e){
 		// The model was valid but the structure (column/operator) was not; drop it from the cache so the
@@ -49,6 +51,28 @@ method fromBI($res = null, $token = null){
 	$CMS->title = esc($title)
 	main($CMS, $title, path: "$CMS->uri/$token")
 }
+
+// Render an aggregate result: a single number as a stat card, a grouped result as a chart widget when the
+// widget resources are loaded (guarded, since a CMS app need not enable them), always with a data table so
+// the answer is never blank without JS or echarts.
+method renderAggregate($model, $res, $rows, $title, $uri){
+	if ((string)($res['groupBy'] ?? '') === '') return main($this->statCard($title, $rows[0]['value'] ?? 0), $title, path: $uri)
+	$data = []
+	foreach ($rows AS $row) $data[(string)($row['label'] ?? '')] = $row['value']
+	$type = in_array($res['chart'] ?? 'bar', ['bar', 'line', 'pie'], true) ? $res['chart'] : 'bar'
+	$chart = $data && phlo_exists('widget_'.$type) ? tag('div', tag('figure', tag('figcaption', esc($title)).phlo('widget_'.$type, type: $type, data: $data)->view), id: 'widgets') : void
+	$chart && %app->js = '/chart.js'
+	return main($chart.$this->dataTable($data), $title, path: $uri)
+}
+
+method statCard($title, $value) => tag('div', tag('div', $this->formatValue($value), class: 'bi-stat-value').tag('div', esc($title), class: 'bi-stat-label'), class: 'bi-stat')
+
+method dataTable($data){
+	$rows = loop($data, fn($value, $label) => tag('tr', tag('td', esc((string)$label)).tag('td', $this->formatValue($value))), lf)
+	return tag('table', tag('tbody', indentView(lf.$rows.lf)), class: 'bi-table')
+}
+
+method formatValue($value) => is_numeric($value) && $value == (int)$value ? number_format((int)$value) : esc((string)$value)
 
 // Real (DB-backed) column names of a model, used both to brief the LLM and to validate its choices.
 method modelColumns($model){
@@ -65,14 +89,13 @@ method promptColumns($model){
 	return loop($this->modelColumns($model), fn($col) => in_array($types[$col] ?? null, ['date', 'datetime'], true) ? "$col (date)" : $col, ', ')
 }
 
-// Build a fully parameterized SELECT from the LLM's STRUCTURED filters: every column is validated against the
-// model's real columns and identifier-quoted, every value is a bound (?) parameter, and the operator comes from
-// a closed allowlist. No LLM text ever reaches the SQL string, so injection (UNION etc.) is impossible. An
-// unknown column/operator throws -> fromBI catches -> fail(). Returns model records.
-method buildQuery($model, $res){
-	$valid = array_flip($this->modelColumns($model))
-	$fq = $model::DB()->fieldQuotes
-	$qcol = fn($c) => $fq.str_replace($fq, $fq.$fq, (string)$c).$fq
+method aggregates => ['count' => 'COUNT', 'sum' => 'SUM', 'avg' => 'AVG', 'min' => 'MIN', 'max' => 'MAX']
+
+// The WHERE clause the LLM's STRUCTURED filters translate to, shared by the list and the aggregate query. Every
+// column is validated against the model's real columns and identifier-quoted, every value is a bound (?)
+// parameter, and the operator comes from a closed allowlist. No LLM text ever reaches the SQL string, so
+// injection (UNION etc.) is impossible; an unknown column/operator throws -> fromBI catches -> fail().
+method whereParts($model, $res, $valid, $qcol){
 	$ops = ['=' => '=', '!=' => '!=', '<>' => '!=', '>' => '>', '>=' => '>=', '<' => '<', '<=' => '<=', 'like' => 'LIKE']
 	$dateCols = array_flip(array_filter(loop($model::fields(), fn($field, $column) => in_array($field->type, ['date', 'datetime'], true) ? $column : null)))
 	$scalar = fn($col, $value) => is_array($value) ? $this->coerceValue($col, reset($value), $dateCols) : $this->coerceValue($col, $value, $dateCols)
@@ -101,6 +124,15 @@ method buildQuery($model, $res){
 		}
 		else error('Unknown operator')
 	}
+	return [$conds, $binds]
+}
+
+// The list query: filtered model records, rendered as the CMS list view.
+method buildQuery($model, $res){
+	$valid = array_flip($this->modelColumns($model))
+	$fq = $model::DB()->fieldQuotes
+	$qcol = fn($c) => $fq.str_replace($fq, $fq.$fq, (string)$c).$fq
+	[$conds, $binds] = $this->whereParts($model, $res, $valid, $qcol)
 	$table = $fq.$model::$table.$fq
 	$sql = 'SELECT '.$table.dot.$qcol($model::idColumn()).' AS _, '.$table.'.* FROM '.$table
 	$conds && $sql .= ' WHERE '.implode(' AND ', $conds)
@@ -112,6 +144,31 @@ method buildQuery($model, $res){
 	}
 	$sql .= ' LIMIT '.min(500, max(1, (int)($res['limit'] ?? 100)))
 	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_CLASS|\PDO::FETCH_UNIQUE, $model)
+}
+
+// The aggregate query: a single count/sum/avg/min/max, optionally grouped by one column. Same allowlist
+// discipline as the list query; the aggregate function and both columns are validated before they reach SQL.
+// Returns rows of {value} or {label, value}.
+method buildAggregate($model, $res){
+	$valid = array_flip($this->modelColumns($model))
+	$fq = $model::DB()->fieldQuotes
+	$qcol = fn($c) => $fq.str_replace($fq, $fq.$fq, (string)$c).$fq
+	$table = $fq.$model::$table.$fq
+	$agg = strtolower((string)($res['aggregate'] ?? 'count'))
+	isset($this->aggregates[$agg]) || error('Unknown aggregate')
+	if ($agg === 'count') $valueSql = 'COUNT(*)'
+	else {
+		$col = (string)($res['aggregateColumn'] ?? '')
+		isset($valid[$col]) || error("Unknown aggregate column: $col")
+		$valueSql = $this->aggregates[$agg].'('.$table.dot.$qcol($col).')'
+	}
+	[$conds, $binds] = $this->whereParts($model, $res, $valid, $qcol)
+	$group = (string)($res['groupBy'] ?? '')
+	$group !== '' && !isset($valid[$group]) && error("Unknown group column: $group")
+	$sql = 'SELECT '.($group !== '' ? $table.dot.$qcol($group).' AS '.$qcol('label').comma.space : void).$valueSql.' AS '.$qcol('value').' FROM '.$table
+	$conds && $sql .= ' WHERE '.implode(' AND ', $conds)
+	if ($group !== '') $sql .= ' GROUP BY '.$table.dot.$qcol($group).' ORDER BY '.$qcol('value').' DESC LIMIT '.min(50, max(1, (int)($res['limit'] ?? 20)))
+	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_ASSOC)
 }
 
 // Date/datetime columns store a unix timestamp, but the model answers with a human date string; convert any
@@ -146,7 +203,11 @@ Return only a JSON object with these keys:
 -title: a short title describing the search
 -model: the singular model name, chosen from the list below
 -filters: an array of objects, each with "column" (a column of the chosen model), "op" (one of: = != > >= < <= like in between null notnull) and "value" (the value; a single value for scalar ops, an array for in and between; omit for null and notnull)
--order: optional, an object with "column" (a column) and "dir" ("asc" or "desc")
+-aggregate: optional, one of "count" "sum" "avg" "min" "max". Set this when the question asks for a number ("how many", "total", "average") rather than a list of records.
+-aggregateColumn: the column to sum/avg/min/max (omit for count)
+-groupBy: optional column to break the aggregate down by ("per host", "by country"); with it the answer is a chart
+-chart: optional, one of "bar" "line" "pie", for a grouped aggregate
+-order: optional, an object with "column" (a column) and "dir" ("asc" or "desc"), for a record list
 -limit: optional integer, at most 500
 Turn every constraint in the question into a filter: a named entity ("on q-dev.nl") becomes an equality filter on the matching column, a time span ("last 24 hours", "in June") becomes a range on a date column. Columns marked (date) hold a date; give their value as a plain date or datetime string like "2026-07-03" or "2026-07-03 14:00". Use only the columns listed for the chosen model. Never invent columns and never return SQL.
 Question:
@@ -179,4 +240,21 @@ form#bi {
 	margin: 1rem 0
 	i: cursor: pointer
 }
+.bi-stat {
+	background: $surface
+	border-radius: 9px
+	margin: 1rem 0
+	padding: 2rem
+	text-align: center
+	.bi-stat-value: font-size: 3rem; font-weight: 700; line-height: 1.1
+	.bi-stat-label: opacity: .7
+}
+table.bi-table {
+	border-collapse: collapse
+	margin: 1rem 0
+	width: 100%
+	td: border-bottom: 1px solid #8884; padding: .4rem .6rem
+	td:last-child: text-align: right; font-variant-numeric: tabular-nums
+}
+#widgets + table.bi-table: opacity: .6
 </style>
