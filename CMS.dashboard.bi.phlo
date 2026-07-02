@@ -52,9 +52,8 @@ method fromBI($res = null, $token = null){
 	main($CMS, $title, path: "$CMS->uri/$token")
 }
 
-// Render an aggregate result: a single number as a stat card, a grouped result as a chart widget when the
-// widget resources are loaded (guarded, since a CMS app need not enable them), always with a data table so
-// the answer is never blank without JS or echarts.
+// The chart widget renders only when the widget resource is loaded (a CMS app need not enable it), so the
+// data table stays as a fallback that needs neither the widget nor echarts.
 method renderAggregate($model, $res, $rows, $title, $uri){
 	if ((string)($res['groupBy'] ?? '') === '') return main($this->statCard($title, $rows[0]['value'] ?? 0), $title, path: $uri)
 	$data = []
@@ -81,12 +80,17 @@ method modelColumns($model){
 	return array_keys($cols)
 }
 
-// Columns briefed to the model, each tagged with its type so it can pick the right one for a time or text
-// constraint. Date and datetime columns are noted as such: the query builder accepts a plain date string on them.
+// Tag each column with its human title so the model knows what it holds (an `id` titled "Domain" is a domain
+// name, not a technical key), and mark date columns so it answers with a plain date string.
 method promptColumns($model){
-	$types = []
-	foreach ($model::fields() AS $column => $field) foreach ((array)$field->objColumns AS $col) $types[$col] ??= $field->type
-	return loop($this->modelColumns($model), fn($col) => in_array($types[$col] ?? null, ['date', 'datetime'], true) ? "$col (date)" : $col, ', ')
+	$meta = []
+	foreach ($model::fields() AS $column => $field) foreach ((array)$field->objColumns AS $col) $meta[$col] ??= $field
+	return loop($this->modelColumns($model), fn($col) => $col.$this->columnNote($meta[$col] ?? null), ', ')
+}
+method columnNote($field){
+	$title = $field && $field->title && strtolower((string)$field->title) !== strtolower((string)$field->name) ? (string)$field->title : void
+	$date = $field && in_array($field->type, ['date', 'datetime'], true)
+	return $title || $date ? ' ('.implode(comma.space, array_filter([$title, $date ? 'date' : void])).')' : void
 }
 
 method aggregates => ['count' => 'COUNT', 'sum' => 'SUM', 'avg' => 'AVG', 'min' => 'MIN', 'max' => 'MAX']
@@ -127,7 +131,6 @@ method whereParts($model, $res, $valid, $qcol){
 	return [$conds, $binds]
 }
 
-// The list query: filtered model records, rendered as the CMS list view.
 method buildQuery($model, $res){
 	$valid = array_flip($this->modelColumns($model))
 	$fq = $model::DB()->fieldQuotes
@@ -146,9 +149,7 @@ method buildQuery($model, $res){
 	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_CLASS|\PDO::FETCH_UNIQUE, $model)
 }
 
-// The aggregate query: a single count/sum/avg/min/max, optionally grouped by one column. Same allowlist
-// discipline as the list query; the aggregate function and both columns are validated before they reach SQL.
-// Returns rows of {value} or {label, value}.
+// The aggregate function and both columns run through the same allowlist as whereParts before reaching SQL.
 method buildAggregate($model, $res){
 	$valid = array_flip($this->modelColumns($model))
 	$fq = $model::DB()->fieldQuotes
@@ -171,9 +172,8 @@ method buildAggregate($model, $res){
 	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_ASSOC)
 }
 
-// Date/datetime columns store a unix timestamp, but the model answers with a human date string; convert any
-// non-numeric value on such a column so the bound parameter matches the stored integer. Everything else passes
-// through unchanged, so a single-element array from the model collapses to its scalar for a scalar operator.
+// A date column stores a unix timestamp but the model answers with a date string; convert it so the bound
+// parameter matches the stored integer.
 method coerceValue($col, $value, $dateCols){
 	if (is_array($value)) return $value
 	if (isset($dateCols[$col]) && is_string($value) && !is_numeric($value) && ($ts = strtotime($value)) !== false) return $ts
@@ -209,7 +209,7 @@ Return only a JSON object with these keys:
 -chart: optional, one of "bar" "line" "pie", for a grouped aggregate
 -order: optional, an object with "column" (a column) and "dir" ("asc" or "desc"), for a record list
 -limit: optional integer, at most 500
-Turn every constraint in the question into a filter: a named entity ("on q-dev.nl") becomes an equality filter on the matching column, a time span ("last 24 hours", "in June") becomes a range on a date column. Columns marked (date) hold a date; give their value as a plain date or datetime string like "2026-07-03" or "2026-07-03 14:00". Use only the columns listed for the chosen model. Never invent columns and never return SQL.
+Turn every constraint in the question into a filter on the column whose title matches it. A named entity ("on q-dev.nl") is an equality filter; a partial name or suffix (".nl domains", "names starting with a") is a "like" filter with a % wildcard on the column that holds that name (often the one titled like the record itself, e.g. "Domain"); a time span ("last 24 hours", "in June") is a range on a date column. Columns marked (date) hold a date; give their value as a plain date or datetime string like "2026-07-03" or "2026-07-03 14:00". Use only the columns listed for the chosen model. Never invent columns and never return SQL.
 Question:
 --
 $q
