@@ -9,7 +9,7 @@ route async POST bi @q {
 	$token = token(input: %payload->q)
 	$res = $this->searches->$token
 	if ($res === null){
-		$parsed = array_filter((array)json_decode(%AI->chat(model: %AI->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".implode(', ', $this->modelColumns($model)), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
+		$parsed = array_filter((array)json_decode(%AI->chat(model: %AI->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".$this->promptColumns($model), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
 		if (!in_array($parsed['model'] ?? null, %app->models, true)) return $this->fail('Could not understand that query')
 		$res = $this->searches->$token = $parsed
 	}
@@ -57,6 +57,14 @@ method modelColumns($model){
 	return array_keys($cols)
 }
 
+// Columns briefed to the model, each tagged with its type so it can pick the right one for a time or text
+// constraint. Date and datetime columns are noted as such: the query builder accepts a plain date string on them.
+method promptColumns($model){
+	$types = []
+	foreach ($model::fields() AS $column => $field) foreach ((array)$field->objColumns AS $col) $types[$col] ??= $field->type
+	return loop($this->modelColumns($model), fn($col) => in_array($types[$col] ?? null, ['date', 'datetime'], true) ? "$col (date)" : $col, ', ')
+}
+
 // Build a fully parameterized SELECT from the LLM's STRUCTURED filters: every column is validated against the
 // model's real columns and identifier-quoted, every value is a bound (?) parameter, and the operator comes from
 // a closed allowlist. No LLM text ever reaches the SQL string, so injection (UNION etc.) is impossible. An
@@ -66,6 +74,8 @@ method buildQuery($model, $res){
 	$fq = $model::DB()->fieldQuotes
 	$qcol = fn($c) => $fq.str_replace($fq, $fq.$fq, (string)$c).$fq
 	$ops = ['=' => '=', '!=' => '!=', '<>' => '!=', '>' => '>', '>=' => '>=', '<' => '<', '<=' => '<=', 'like' => 'LIKE']
+	$dateCols = array_flip(array_filter(loop($model::fields(), fn($field, $column) => in_array($field->type, ['date', 'datetime'], true) ? $column : null)))
+	$scalar = fn($col, $value) => is_array($value) ? $this->coerceValue($col, reset($value), $dateCols) : $this->coerceValue($col, $value, $dateCols)
 	$conds = []
 	$binds = []
 	foreach ((array)($res['filters'] ?? []) AS $f){
@@ -78,16 +88,16 @@ method buildQuery($model, $res){
 		elseif ($op === 'in'){
 			($vals = array_values((array)($f['value'] ?? []))) || error('in needs values')
 			$conds[] = "$qc IN (".implode(comma, array_fill(0, count($vals), qm)).")"
-			array_push($binds, ...$vals)
+			foreach ($vals AS $v) $binds[] = $this->coerceValue($col, $v, $dateCols)
 		}
 		elseif ($op === 'between'){
 			count($vals = array_slice(array_values((array)($f['value'] ?? [])), 0, 2)) === 2 || error('between needs two values')
 			$conds[] = "$qc BETWEEN ? AND ?"
-			array_push($binds, ...$vals)
+			foreach ($vals AS $v) $binds[] = $this->coerceValue($col, $v, $dateCols)
 		}
 		elseif (isset($ops[$op])){
 			$conds[] = "$qc $ops[$op] ?"
-			$binds[] = $f['value'] ?? null
+			$binds[] = $scalar($col, $f['value'] ?? null)
 		}
 		else error('Unknown operator')
 	}
@@ -102,6 +112,15 @@ method buildQuery($model, $res){
 	}
 	$sql .= ' LIMIT '.min(500, max(1, (int)($res['limit'] ?? 100)))
 	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_CLASS|\PDO::FETCH_UNIQUE, $model)
+}
+
+// Date/datetime columns store a unix timestamp, but the model answers with a human date string; convert any
+// non-numeric value on such a column so the bound parameter matches the stored integer. Everything else passes
+// through unchanged, so a single-element array from the model collapses to its scalar for a scalar operator.
+method coerceValue($col, $value, $dateCols){
+	if (is_array($value)) return $value
+	if (isset($dateCols[$col]) && is_string($value) && !is_numeric($value) && ($ts = strtotime($value)) !== false) return $ts
+	return $value
 }
 
 method fail($message) => %req->async ? apply(error: $message) : main(tag('section', tag('h1', 'Search failed').tag('p', esc($message).dot)), 'Search failed')
@@ -126,17 +145,17 @@ You translate a natural-language question into a structured database query. Do n
 Return only a JSON object with these keys:
 -title: a short title describing the search
 -model: the singular model name, chosen from the list below
--filters: an array of objects, each with "column" (a column of the chosen model), "op" (one of: = != > >= < <= like in between null notnull) and "value" (the value; use an array for in and between; omit for null and notnull)
+-filters: an array of objects, each with "column" (a column of the chosen model), "op" (one of: = != > >= < <= like in between null notnull) and "value" (the value; a single value for scalar ops, an array for in and between; omit for null and notnull)
 -order: optional, an object with "column" (a column) and "dir" ("asc" or "desc")
 -limit: optional integer, at most 500
-Use only the columns listed for the chosen model. Never invent columns and never return SQL.
+Turn every constraint in the question into a filter: a named entity ("on q-dev.nl") becomes an equality filter on the matching column, a time span ("last 24 hours", "in June") becomes a range on a date column. Columns marked (date) hold a date; give their value as a plain date or datetime string like "2026-07-03" or "2026-07-03 14:00". Use only the columns listed for the chosen model. Never invent columns and never return SQL.
 Question:
 --
 $q
 --
 Models and their columns:
 $struct
-It is currently {{ date('j-n-Y H:i') }}.
+The current date and time is {{ date('Y-m-d H:i') }}.
 
 <script>
 const recognition = window.webkitSpeechRecognition ? new webkitSpeechRecognition : null
