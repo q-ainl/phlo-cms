@@ -49,6 +49,9 @@ view nav:
 		</if>
 	</foreach>
 	{{ $this->tools }}
+	<if %app->logout>
+		<a.logout href="%app->logout"><i>⏻</i>Logout</a>
+	</if>
 </nav>
 
 view toggle: <div#menuToggle title=Toggle+menu/>
