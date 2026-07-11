@@ -34,6 +34,21 @@ Wire it into your Phlo app config (`data/app.json`):
 
 The action buttons in the record, create and change views call `button()`, and async forms (file/image uploads included) rely on the form submit handler, so the host app must also list `tags.form` and `DOM/form` in `resources`.
 
+## Interface text
+
+The fixed interface text — the nav, the list and record/edit actions, and the empty and not-found states — renders through phlo's `en()` translation helper (the `{en: ...}` view shorthand, or `en('...')` in code), with English as the source language. The host app must therefore make an `en()` function available, in one of two ways:
+
+- **Translated:** add the `lang` resource to `resources`. It translates on demand per `%app->lang`, caches each language in `langs/<lang>.ini`, and falls back to the source text until a line is translated. (`lang` itself requires `@cookies @AI @INI phlo.async`.)
+- **Single language, no dependency:** declare a guarded passthrough in your app controller, so the source text renders verbatim:
+
+```phlo
+if (!function_exists('en')) { function en($t, ...$a){ return $a ? sprintf($t, ...$a) : $t; } }
+```
+
+Keep that on one line: phlo compiles a line that starts with `function` as an unconditional resource function (which would clash with `lang`'s own `en()`), and PHP needs the braces to allow a function declaration inside the `if`. When `lang` is loaded it declares `en()` first, so the guard becomes a no-op and translation takes over.
+
+Without either, the views raise `Call to undefined function en()` on the first render.
+
 ## Optional field styling
 
 The base markup tags every rendered field with its view and type, e.g. `class="label datetime"` or `class="input image"` (see `CMS::field()`). The default look leaves those untouched, so nothing changes unless you opt in.
