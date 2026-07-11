@@ -1,0 +1,14 @@
+// Example app for a Phlo CMS install: copy to your app root as app.phlo and adapt.
+
+static %model.DB => %MySQL
+prop title = 'My CMS'
+prop models = ['article']
+prop menu => ['article' => ['icon' => '📄', 'uri' => 'articles', 'title' => 'Articles']]
+
+// Guarded en() so the CMS chrome renders without lang.phlo; load the `lang` resource instead to translate.
+if (!function_exists('en')) { function en($t, ...$a){ return $a ? sprintf($t, ...$a) : $t; } }
+
+if (app::route()) return
+return output(['error' => 'not found'], code: 404)
+
+view head: %CSRF

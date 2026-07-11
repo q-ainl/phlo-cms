@@ -49,6 +49,8 @@ Keep that on one line: phlo compiles a line that starts with `function` as an un
 
 Without either, the views raise `Call to undefined function en()` on the first render.
 
+[`app.example.phlo`](app.example.phlo) is a minimal host app with the passthrough already in place; copy it to your app root as `app.phlo` and adapt.
+
 ## Optional field styling
 
 The base markup tags every rendered field with its view and type, e.g. `class="label datetime"` or `class="input image"` (see `CMS::field()`). The default look leaves those untouched, so nothing changes unless you opt in.
