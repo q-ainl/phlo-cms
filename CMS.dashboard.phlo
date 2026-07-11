@@ -6,7 +6,7 @@ route both GET {
 prop bi => class_exists('CMS_dashboard_bi') ? %CMS_dashboard_bi : void
 
 view:
-<h1>%app->title Dashboard</h1>
+<h1>%app->title {en: Dashboard}</h1>
 $this->bi$this->widgets
 
 view widgets {

@@ -34,7 +34,7 @@ view => $this->top.$this->nav.lf.$this->toggle
 
 view nav:
 <nav>
-	<a href="/"{{ active(%app->active === 'dashboard', 'async') }}><i>⚡</i>Dashboard</a>
+	<a href="/"{{ active(%app->active === 'dashboard', 'async') }}><i>⚡</i>{en: Dashboard}</a>
 	<foreach %app->menu AS $model => $item>
 		<a href="/$item[uri]"{{ active(%app->active === $model, 'async') }}><i>$item[icon]</i>$item[title]</a>
 		<if %app->active === $model && class_exists($model) && method_exists($model, 'objFilters')>
@@ -51,23 +51,23 @@ view nav:
 	{{ $this->tools }}
 </nav>
 
-view toggle: <div#menuToggle title=Toggle+menu/>
+view toggle: <div#menuToggle title="{en: Toggle menu}"/>
 
 view tools:
 <div.cms-tools>
 	<div.cms-tool>
-		<button.cms-tool-toggle type=button title=Theme aria-label=Theme><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2><circle cx=12 cy=12 r=9/><path d="M12 3a9 9 0 0 1 0 18z" fill=currentColor stroke=none/></svg></button>
+		<button.cms-tool-toggle type=button title="{en: Theme}" aria-label="{en: Theme}"><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2><circle cx=12 cy=12 r=9/><path d="M12 3a9 9 0 0 1 0 18z" fill=currentColor stroke=none/></svg></button>
 		<div.cms-pop.cms-pop-list>
-			<a href="/set/theme" data-name="" class="async cms-theme{( %app->theme ? void : ' is-active' )}">Default</a>
+			<a href="/set/theme" data-name="" class="async cms-theme{( %app->theme ? void : ' is-active' )}">{en: Default}</a>
 			<foreach files(www, 'theme.*.css') AS $file>
 			<a href="/set/theme/{{ $this->assetName($file) }}" data-name="{{ $this->assetName($file) }}" class="async cms-theme{( %app->theme === $this->assetName($file) ? ' is-active' : void )}">{{ ucfirst($this->assetName($file)) }}</a>
 			</foreach>
 		</div>
 	</div>
 	<div.cms-tool>
-		<button.cms-tool-toggle type=button title=Animation aria-label=Animation><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><path d="M3 8h14l-4-4"/><path d="M21 16H7l4 4"/></svg></button>
+		<button.cms-tool-toggle type=button title="{en: Animation}" aria-label="{en: Animation}"><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><path d="M3 8h14l-4-4"/><path d="M21 16H7l4 4"/></svg></button>
 		<div.cms-pop.cms-pop-list>
-			<a href="/set/trans" data-name="" class="async cms-trans{( %app->trans ? void : ' is-active' )}">Default</a>
+			<a href="/set/trans" data-name="" class="async cms-trans{( %app->trans ? void : ' is-active' )}">{en: Default}</a>
 			<foreach files(www, 'trans.*.css') AS $file>
 			<a href="/set/trans/{{ $this->assetName($file) }}" data-name="{{ $this->assetName($file) }}" class="async cms-trans{( %app->trans === $this->assetName($file) ? ' is-active' : void )}">{{ ucfirst($this->assetName($file)) }}</a>
 			</foreach>
@@ -75,7 +75,7 @@ view tools:
 	</div>
 	<if %app->logout>
 		<div.cms-tool>
-			<a.cms-tool-link href="%app->logout" title=Logout aria-label=Logout><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></a>
+			<a.cms-tool-link href="%app->logout" title="{en: Logout}" aria-label="{en: Logout}"><svg viewBox="0 0 24 24" width=18 height=18 fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></a>
 		</div>
 	</if>
 </div>

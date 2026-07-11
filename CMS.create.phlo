@@ -24,7 +24,7 @@ prop record => new $this->model
 
 prop actions {
 	$actions = []
-	$actions[] = button('Save', form: 'form', class: 'primary')
+	$actions[] = button(en('Save'), form: 'form', class: 'primary')
 	return implode(lf, $actions)
 }
 

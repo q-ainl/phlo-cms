@@ -6,7 +6,7 @@ route both GET change $record $id $debug? {
 	%app->active = $model
 	$CMS = CMS($model, 'change', id: $id)
 	$debug && dx($model, $CMS)
-	if (!$CMS->record) return main(tag('section', tag('h1', 'Not found').tag('p', 'This record no longer exists.')), 'Not found')
+	if (!$CMS->record) return main(tag('section', tag('h1', en('Not found')).tag('p', en('This record no longer exists.'))), en('Not found'))
 	if (!$model::canChange($CMS->record)) return false
 	main($CMS, $CMS->title)
 }
@@ -27,7 +27,7 @@ prop title => 'Edit: '.$this->titleRecord.space.$this->record
 
 prop actions {
 	$actions = []
-	$actions[] = button('Save', form: 'form', class: 'primary')
+	$actions[] = button(en('Save'), form: 'form', class: 'primary')
 	return implode(lf, $actions)
 }
 
