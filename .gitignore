@@ -1,5 +1,6 @@
 .claude/
 /vendor/
+composer.lock
 /.phpunit.cache/
 
 # BI test fixture build output (generated app.json + compiled PHP/assets)
