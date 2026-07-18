@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: q-ainl/phlo
-          ref: 6d27ca6beaf51829ff691f485e6fe1fe5de3d435
+          ref: main
           path: engine
 
       - uses: shivammathur/setup-php@v2
