@@ -1,0 +1,105 @@
+@ extends: CMS_list
+
+static sortColumn($model) => property_exists($model, 'sortColumn') ? $model::$sortColumn : 'sort'
+
+route async PUT api sort $model @ids {
+	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
+	if (!in_array($model, (array)%app->models, true)) return apply(error: 'Unknown model')
+	$column = static::sortColumn($model)
+	if (!isset($model::fields()[$column])) return apply(error: 'Model has no sort column')
+	if (!$model::canChange()) return apply(error: 'Not allowed')
+	foreach ((array)%payload->ids AS $index => $id) $model::change('id=?', (int)$id, ...[$column => $index + 1])
+	return apply(state: false)
+}
+
+prop fields => array_filter(parent::_fields(), fn($field) => $field->name !== static::sortColumn($this->model))
+
+prop fieldCount => count($this->fields) + 1
+
+$this->type = 'default'
+
+view body:
+<table.body>
+	<thead>
+		<tr>
+			<th></th>
+			<foreach $this->fields AS $column => $field>
+				<th>$field->title</th>
+			</foreach>
+		</tr>
+	</thead>
+	<tbody>
+		{{ $this->bodyRecords }}
+	</tbody>
+</table>
+{( $this->parent ? void : $this->more )}
+
+view bodyRecords:
+<if $records = $this->records>
+	<foreach $this->records AS $id => $record>
+		<tr data-id=$id>
+			<td.sort>⬍</td>
+			<foreach $this->fields AS $column => $field>
+				{{ $this->field($field, $record, 'td') }}
+			</foreach>
+		</tr>
+	</foreach>
+<else>
+	{{ $this->noRecords }}
+</if>
+
+<script>
+let draggingRow = null
+let dragStartOrder = null
+let dragTbody = null
+
+const getOrder = tbody => [...tbody.querySelectorAll('tr[data-id]')].map(tr => tr.dataset.id)
+const arraysEqual = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
+
+on('pointerdown', 'td.sort', (cell, e) => {
+	const tr = cell.closest('tr')
+	if (!tr || e.button !== 0) return false
+	e.preventDefault()
+	draggingRow = tr
+	dragTbody = tr.parentNode
+	dragStartOrder = getOrder(dragTbody)
+	tr.classList.add('dragging')
+	return false
+})
+
+on('pointermove', 'body', (body, e) => {
+	if (!draggingRow) return false
+	const tr = e.target.closest('tr')
+	if (!tr || tr.parentNode !== dragTbody) return false
+	const rect = tr.getBoundingClientRect()
+	const offset = e.clientY - rect.top
+	if (offset < rect.height / 2) dragTbody.insertBefore(draggingRow, tr)
+	else dragTbody.insertBefore(draggingRow, tr.nextElementSibling)
+	return false
+})
+
+on('pointerup', 'body', (body, e) => {
+	if (!draggingRow) return false
+	draggingRow.classList.remove('dragging')
+	if (dragTbody && dragStartOrder){
+		const newOrder = getOrder(dragTbody)
+		if (!arraysEqual(dragStartOrder, newOrder)) app.put(`api/sort/${draggingRow.closest('[data-model]').dataset.model}`, {ids: newOrder})
+	}
+	draggingRow = null
+	dragTbody = null
+	dragStartOrder = null
+	return false
+})
+</script>
+
+<style>
+td.sort {
+	cursor: grab
+	font-size: 2em
+	text-align: center
+	touch-action: none
+	user-select: none
+	vertical-align: middle !important
+}
+tbody:has(tr.dragging) tr:not(.dragging): opacity: .3
+</style>
