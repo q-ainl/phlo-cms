@@ -12,8 +12,6 @@ route async PUT api sort $model @ids {
 	return apply(state: false)
 }
 
-prop fields => array_filter(parent::_fields(), fn($field) => $field->name !== static::sortColumn($this->model))
-
 prop fieldCount => count($this->fields) + 1
 
 $this->type = 'default'
