@@ -21,8 +21,8 @@ static listOptions(CMS $CMS, ?string $req = null){
 		if ($req->q){
 			$fields = $CMS->searchFields
 			$CMS->q = $req->q
-			$opts->where = loop($fields, fn($f, $c) => "$c LIKE ?", ' OR ')
-			foreach ($fields AS $c => $f) $opts->$c = perc.strtr($req->q, [space => perc]).perc
+			$like = $CMS->model::DB()->PDO->quote(perc.strtr($req->q, [space => perc]).perc)
+			$opts->where = loop($fields, fn($f, $c) => "$c LIKE $like", ' OR ')
 		}
 		$filters = $CMS->filters
 		if ($req->f && ($filters[$req->f]['filter'] ?? null)) $opts->where = ($opts->where ? '('.$opts->where.') AND ' : void).$filters[$CMS->f = $req->f]['filter']
