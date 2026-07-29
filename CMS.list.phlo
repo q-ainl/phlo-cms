@@ -42,7 +42,14 @@ prop pp => $this->model::$pp ?? 20
 prop title => $this->relationshipName ? $this->parent->model::fields()[$this->relationshipName]->title : $this->titleList
 prop options => new obj(limit: $this->pp)
 prop records => $this->model::records(...$this->options)
-prop fieldCount => count($this->fields)
+prop fieldCount => count($this->fields) + $this->rowExtra
+
+// A list variant that needs columns of its own in front of the fields fills these in, rather
+// than copying the table to add a cell. Empty by default, so an ordinary list renders exactly
+// as it did. Set rowExtra to how many cells the two return, so a colspan still spans the row.
+prop rowExtra = 0
+method rowHead => void
+method rowLead($record) => void
 
 prop searchFields => $this->parent ? [] : array_filter($this->model::fields(), fn($f) => $f->search)
 prop filters => $this->parent ? [] : (method_exists($this->model, 'objFilters') || property_exists($this->model, 'objFilters') ? $this->model::objFilters() : [])
@@ -81,6 +88,7 @@ view body:
 <table.body>
 	<thead>
 		<tr>
+			{{ $this->rowHead }}
 			<foreach $this->fields AS $column => $field>
 				<th>$field->title</th>
 			</foreach>
@@ -96,6 +104,7 @@ view bodyRecords:
 <if $records = $this->records>
 	<foreach $this->records AS $id => $record>
 		<tr data-id=$id>
+			{{ $this->rowLead($record) }}
 			<foreach $this->fields AS $column => $field>
 				{{ $this->field($field, $record, 'td') }}
 			</foreach>

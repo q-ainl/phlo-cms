@@ -52,7 +52,17 @@ class CMS_list extends CMS {
 		return $this->model::records(...$this->options);
 	}
 	protected function _fieldCount(){
-		return count($this->fields);
+		return count($this->fields) + $this->rowExtra;
+	}
+	// A list variant that needs columns of its own in front of the fields fills these in, rather
+	// than copying the table to add a cell. Empty by default, so an ordinary list renders exactly
+	// as it did. Set rowExtra to how many cells the two return, so a colspan still spans the row.
+	public $rowExtra = 0;
+	protected function rowHead(){
+		return void;
+	}
+	protected function rowLead($record){
+		return void;
 	}
 	protected function _searchFields(){
 		return $this->parent ? [] : array_filter($this->model::fields(), fn($f) => $f->search);
@@ -106,6 +116,7 @@ class CMS_list extends CMS {
 		$_[] = "<table class=\"body\">";
 		$_[] = "	<thead>";
 		$_[] = "		<tr>";
+		$_[] = "			".(indentView($this->rowHead , 3))."";
 		foreach ($this->fields AS $column => $field){
 			$_[] = "			<th>$field->title</th>";
 		}
@@ -123,6 +134,7 @@ class CMS_list extends CMS {
 		if ($records = $this->records){
 			foreach ($this->records AS $id => $record){
 				$_[] = "<tr data-id=\"$id\">";
+				$_[] = "	".(indentView($this->rowLead($record) ))."";
 				foreach ($this->fields AS $column => $field){
 					$_[] = "	".(indentView($this->field($field, $record, 'td') ))."";
 				}

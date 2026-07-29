@@ -76,41 +76,22 @@ route async PUT api sort $model @ids {
 	return apply(state: false)
 }
 
-prop fieldCount => count($this->fields) + 1
+// The whole difference with an ordinary list: one column in front, holding the handle and the
+// group the row belongs to. The table itself comes from CMS_list, so a change to the standard
+// list does not have to be made twice.
+prop rowExtra = 1
 
 method sortGroupValue($record) => ($group = static::sortGroup($this->model)) ? (string)static::sortGroupOf($record, $group) : void
 
+method rowHead => '<th></th>'
+
+method rowLead($record){
+	$group = ' data-sort-group="'.esc((string)$this->sortGroupValue($record)).'"'
+	if ($this->o) return '<td class="sort sort--off"'.$group.'><span class="sort__grip" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</span></td>'
+	return '<td class="sort"'.$group.'><button type="button" class="sort__grip" aria-label="'.esc(en('Move this row: drag it, or use the arrow keys')).'" title="'.esc(en('Drag to reorder')).'">⬍</button></td>'
+}
+
 $this->type = 'default'
-
-view body:
-<table.body>
-	<thead>
-		<tr>
-			<th></th>
-			<foreach $this->fields AS $column => $field>
-				<th>$field->title</th>
-			</foreach>
-		</tr>
-	</thead>
-	<tbody>
-		{{ $this->bodyRecords }}
-	</tbody>
-</table>
-{( $this->parent ? void : $this->more )}
-
-view bodyRecords:
-<if $records = $this->records>
-	<foreach $this->records AS $id => $record>
-		<tr data-id=$id data-sort-group="{[ $this->sortGroupValue($record) ]}">
-			{( $this->o ? '<td class="sort sort--off"><span class="sort__grip" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</span></td>' : '<td class="sort"><button type="button" class="sort__grip" aria-label="'.esc(en('Move this row: drag it, or use the arrow keys')).'" title="'.esc(en('Drag to reorder')).'">⬍</button></td>' )}
-			<foreach $this->fields AS $column => $field>
-				{{ $this->field($field, $record, 'td') }}
-			</foreach>
-		</tr>
-	</foreach>
-<else>
-	{{ $this->noRecords }}
-</if>
 
 <script>
 let draggingRow = null
@@ -118,7 +99,10 @@ let dragStartOrder = null
 let dragTbody = null
 
 const getOrder = tbody => [...tbody.querySelectorAll('tr[data-id]')].map(tr => tr.dataset.id)
-const sameGroup = (a, b) => a.dataset.sortGroup === b.dataset.sortGroup
+// The group rides on the handle cell rather than the row, so the row itself stays exactly the
+// one CMS_list renders.
+const groupOf = row => row.querySelector('td.sort')?.dataset.sortGroup
+const sameGroup = (a, b) => groupOf(a) === groupOf(b)
 const arraysEqual = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
 const groupRows = row => [...row.parentNode.querySelectorAll('tr[data-id]')].filter(r => sameGroup(r, row))
 

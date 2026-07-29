@@ -79,48 +79,22 @@ class CMS_list_sort extends CMS_list {
 		if ($error = static::sortApply($model, (array)phlo('payload')->ids)) return apply(error: $error);
 		return apply(state: false);
 	}
-	protected function _fieldCount(){
-		return count($this->fields) + 1;
-	}
+	// The whole difference with an ordinary list: one column in front, holding the handle and the
+	// group the row belongs to. The table itself comes from CMS_list, so a change to the standard
+	// list does not have to be made twice.
+	public $rowExtra = 1;
 	protected function sortGroupValue($record){
 		return ($group = static::sortGroup($this->model)) ? (string)static::sortGroupOf($record, $group) : void;
 	}
+	protected function rowHead(){
+		return '<th></th>';
+	}
+	protected function rowLead($record){
+		$group = ' data-sort-group="'.esc((string)$this->sortGroupValue($record)).'"';
+		if ($this->o) return '<td class="sort sort--off"'.$group.'><span class="sort__grip" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</span></td>';
+		return '<td class="sort"'.$group.'><button type="button" class="sort__grip" aria-label="'.esc(en('Move this row: drag it, or use the arrow keys')).'" title="'.esc(en('Drag to reorder')).'">⬍</button></td>';
+	}
 	protected function controller(){
 		$this->type = 'default';
-	}
-	protected function body():string {
-		$_ = [];
-		$_[] = "<table class=\"body\">";
-		$_[] = "	<thead>";
-		$_[] = "		<tr>";
-		$_[] = "			<th></th>";
-		foreach ($this->fields AS $column => $field){
-			$_[] = "			<th>$field->title</th>";
-		}
-		$_[] = "		</tr>";
-		$_[] = "	</thead>";
-		$_[] = "	<tbody>";
-		$_[] = "		".(indentView($this->bodyRecords , 2))."";
-		$_[] = "	</tbody>";
-		$_[] = "</table>";
-		$_[] = "".($this->parent ? void : $this->more)."";
-		return implode(lf, $_);
-	}
-	protected function bodyRecords():string {
-		$_ = [];
-		if ($records = $this->records){
-			foreach ($this->records AS $id => $record){
-				$_[] = "<tr data-id=\"$id\" data-sort-group=\"".(esc($this->sortGroupValue($record)))."\">";
-				$_[] = "	".(indentView($this->o ? '<td class="sort sort--off"><span class="sort__grip" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</span></td>' : '<td class="sort"><button type="button" class="sort__grip" aria-label="'.esc(en('Move this row: drag it, or use the arrow keys')).'" title="'.esc(en('Drag to reorder')).'">⬍</button></td>' ))."";
-				foreach ($this->fields AS $column => $field){
-					$_[] = "	".(indentView($this->field($field, $record, 'td') ))."";
-				}
-				$_[] = "</tr>";
-			}
-		}
-		else {
-			$_[] = "".($this->noRecords)."";
-		}
-		return implode(lf, $_);
 	}
 }

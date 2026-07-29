@@ -189,7 +189,10 @@ let dragStartOrder = null
 let dragTbody = null
 
 const getOrder = tbody => [...tbody.querySelectorAll('tr[data-id]')].map(tr => tr.dataset.id)
-const sameGroup = (a, b) => a.dataset.sortGroup === b.dataset.sortGroup
+// The group rides on the handle cell rather than the row, so the row itself stays exactly the
+// one CMS_list renders.
+const groupOf = row => row.querySelector('td.sort')?.dataset.sortGroup
+const sameGroup = (a, b) => groupOf(a) === groupOf(b)
 const arraysEqual = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
 const groupRows = row => [...row.parentNode.querySelectorAll('tr[data-id]')].filter(r => sameGroup(r, row))
 
