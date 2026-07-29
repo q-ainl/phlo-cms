@@ -1,0 +1,16 @@
+@ class:   nosort
+@ extends: model
+
+// Has a column called sort but never selected the sort view. Reordering it must be refused,
+// otherwise opting in means nothing.
+static table = 'nosorts'
+static order = 'sort ASC'
+
+static canView => true
+static canChange => true
+static canDelete => true
+
+static schema => arr(
+	id: field(type: 'number', title: 'ID'),
+	sort: field(type: 'number', title: 'Sort'),
+)

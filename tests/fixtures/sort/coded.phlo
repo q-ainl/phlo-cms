@@ -1,0 +1,33 @@
+@ class:   coded
+@ extends: model
+
+// A string primary key on a column that is not called id, so the reorder cannot lean on
+// either assumption.
+static table = 'codeds'
+static order = 'weight ASC'
+static listView = 'sort'
+static sortColumn = 'weight'
+static idColumn = 'code'
+static idType = 'string'
+
+static canView => true
+static canChange => true
+static canDelete => true
+
+static schema => arr(
+	code: field(type: 'text', title: 'Code'),
+	name: field(type: 'text', title: 'Name'),
+	weight: field(type: 'number', title: 'Weight'),
+)
+
+static prepareTable {
+	static::DB()->query('CREATE TABLE IF NOT EXISTS codeds (code TEXT PRIMARY KEY, name TEXT, weight INTEGER)')
+	static::DB()->query('DELETE FROM codeds')
+	static::DB()->query('INSERT INTO codeds (code, name, weight) VALUES (?, ?, 1), (?, ?, 2), (?, ?, 3)', 'cash', 'Cash', 'pin', 'Pin', 'card', 'Card')
+}
+
+static positions(){
+	$out = []
+	foreach (static::DB()->query('SELECT code, weight FROM codeds ORDER BY weight')->fetchAll() AS $row) $out[(string)$row['code']] = (int)$row['weight']
+	return $out
+}

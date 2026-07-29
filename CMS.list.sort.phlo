@@ -5,46 +5,49 @@ static sortGroup($model) => property_exists($model, 'sortGroup') ? $model::$sort
 
 static sortIds($model, array $ids) => array_values(array_map(fn($id) => $model::$idType === 'int' ? (int)$id : (string)$id, $ids))
 
+// A record loaded from the database carries its raw key in objData, while the property
+// itself hands back the related object. A record built from a payload has only the property,
+// and that already holds the raw key.
 static sortGroupOf($record, $group) => $record->objData[$group] ?? $record->$group
 
 // An empty group is a group of its own: records without a category belong together and can
 // be ordered among themselves. That needs IS NULL, because an equality bind on null matches
 // nothing in SQL and would silently hand back an empty group.
-static sortGroupRecords($model, $record, $column, $group){
+static sortGroupRecords($model, $column, $group, $value){
 	if ($group === null) return $model::records(order: $column.' ASC')
-	$value = static::sortGroupOf($record, $group)
 	if ($value === null) return $model::records(where: $group.' IS NULL', order: $column.' ASC')
 	return $model::records(...[$group => $value], order: $column.' ASC')
 }
 
-// The next free position within the record's own group, so a new record lands at the end
-// instead of jumping to the front on a sort column that defaults to zero.
-static sortNext($model, $record):int {
+// The next free position within a group, so a record lands at the end instead of keeping a
+// number that means nothing there. The group value is passed in rather than read from the
+// record, because a record being saved holds its new group on the property and its old one
+// in objData.
+static sortNext($model, $value):int {
 	$column = static::sortColumn($model)
-	$group = static::sortGroup($model)
-	$rows = static::sortGroupRecords($model, $record, $column, $group)
+	$rows = static::sortGroupRecords($model, $column, static::sortGroup($model), $value)
 	$last = 0
 	foreach ($rows AS $row) $last = max($last, (int)$row->$column)
 	return $last + 1
 }
 
-route async PUT api sort $model @ids {
-	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
-	if (!in_array($model, (array)%app->models, true)) return apply(error: 'Unknown model')
-	if ((property_exists($model, 'listView') ? $model::$listView : null) !== 'sort') return apply(error: 'Model does not sort by hand')
+// The reorder itself, apart from the request so it can be exercised directly. Returns an
+// error string, or null when the group was rewritten.
+static sortApply($model, array $rawIds):?string {
+	if ((property_exists($model, 'listView') ? $model::$listView : null) !== 'sort') return 'Model does not sort by hand'
 	$column = static::sortColumn($model)
 	$fields = $model::fields()
-	if (!isset($fields[$column])) return apply(error: 'Model has no sort column')
+	if (!isset($fields[$column])) return 'Model has no sort column'
 	$group = static::sortGroup($model)
-	if ($group !== null && !isset($fields[$group])) return apply(error: 'Model has no sort group')
+	if ($group !== null && !isset($fields[$group])) return 'Model has no sort group'
 	$key = $model::idColumn()
-	$ids = static::sortIds($model, (array)%payload->ids)
-	if (!$ids) return apply(error: 'Nothing to sort')
-	if (count($ids) !== count(array_unique($ids, SORT_REGULAR))) return apply(error: 'Duplicate records')
+	$ids = static::sortIds($model, $rawIds)
+	if (!$ids) return 'Nothing to sort'
+	if (count($ids) !== count(array_unique($ids, SORT_REGULAR))) return 'Duplicate records'
 	$first = $model::record(...[$key => $ids[0]])
-	if (!$first) return apply(error: 'Unknown record')
-	$all = static::sortGroupRecords($model, $first, $column, $group)
-	foreach ($ids AS $id) if (!isset($all[$id])) return apply(error: 'Record outside this group')
+	if (!$first) return 'Unknown record'
+	$all = static::sortGroupRecords($model, $column, $group, $group === null ? null : static::sortGroupOf($first, $group))
+	foreach ($ids AS $id) if (!isset($all[$id])) return 'Record outside this group'
 	$order = array_keys($all)
 	$slots = []
 	foreach ($order AS $index => $id) if (in_array($id, $ids, true)) $slots[] = $index
@@ -55,10 +58,17 @@ route async PUT api sort $model @ids {
 	// neighbour either.
 	$writes = []
 	foreach ($order AS $index => $id) if ((int)$all[$id]->$column !== $index + 1) $writes[$id] = $index + 1
-	foreach ($writes AS $id => $position) if (!$model::canChange($all[$id])) return apply(error: 'Not allowed')
+	foreach ($writes AS $id => $position) if (!$model::canChange($all[$id])) return 'Not allowed'
 	$model::transaction(function() use ($model, $writes, $column, $key){
 		foreach ($writes AS $id => $position) $model::change($key.'=?', $id, ...[$column => $position])
 	})
+	return null
+}
+
+route async PUT api sort $model @ids {
+	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
+	if (!in_array($model, (array)%app->models, true)) return apply(error: 'Unknown model')
+	if ($error = static::sortApply($model, (array)%payload->ids)) return apply(error: $error)
 	return apply(state: false)
 }
 
@@ -148,10 +158,6 @@ on('pointerup', 'body', (body, e) => {
 </script>
 
 <style>
-td.sort--off {
-	cursor: default
-	opacity: .25
-}
 td.sort {
 	cursor: grab
 	font-size: 2em
@@ -159,6 +165,10 @@ td.sort {
 	touch-action: none
 	user-select: none
 	vertical-align: middle !important
+}
+td.sort--off {
+	cursor: default
+	opacity: .25
 }
 tbody:has(tr.dragging) tr:not(.dragging): opacity: .3
 </style>

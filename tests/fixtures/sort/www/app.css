@@ -1,0 +1,95 @@
+section.list.default {
+	display: contents;
+}
+section.list.default.main table th {
+	top: 30px;
+}
+section.list.default header {
+	display: flex;
+}
+section.list.default header .search {
+	flex: 1 1 200px;
+	min-width: 120px;
+	position: relative;
+}
+section.list.default header .search input {
+	width: 100%;
+	padding: .55rem .75rem .55rem 2.25rem;
+	border: none;
+	border-radius: 9px;
+	background: var(--border);
+	color: var(--text);
+	font-size: .85em;
+}
+section.list.default header .search i {
+	position: absolute;
+	left: .75rem;
+	top: 50%;
+	transform: translateY(-50%);
+	pointer-events: none;
+}
+section.list.default table {
+	min-width: 100%;
+}
+section.list.default table th {
+	background: var(--surface);
+	font-size: .85em;
+	font-weight: normal;
+	line-height: 30px;
+	margin-bottom: 3em;
+	position: sticky;
+	text-align: left;
+	top: 60px;
+}
+section.list.default table tbody tr:nth-child(odd) {
+	background: transparent;
+}
+section.list.default table tbody tr:nth-child(even) {
+	background: color-mix(in srgb, var(--surface) 92%, var(--text));
+}
+section.list.default table tbody tr:hover td,
+section.list.default table tbody tr td.active {
+	background: color-mix(in srgb, var(--surface) 82%, var(--text));
+}
+section.list.default table tbody tr td {
+	padding: .5rem;
+	vertical-align: top;
+}
+section.list.default table tbody tr td input.field,
+section.list.default table tbody tr td select,
+section.list.default table tbody tr td textarea {
+	border: 1px solid var(--text);
+	border-radius: 3px;
+	min-width: 100px;
+	margin: -.25rem;
+	padding: .25rem;
+}
+section.list.default table tbody tr td > a.async {
+	display: block;
+	max-width: 150px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+section.list.default table tbody tr td.link {
+	cursor: pointer;
+}
+section.list.default table tbody tr td .noRecords {
+	font-size: 1.2em;
+	text-align: center;
+}
+td.sort {
+	cursor: grab;
+	font-size: 2em;
+	text-align: center;
+	touch-action: none;
+	user-select: none;
+	vertical-align: middle !important;
+}
+td.sort--off {
+	cursor: default;
+	opacity: .25;
+}
+tbody:has(tr.dragging) tr:not(.dragging) {
+	opacity: .3;
+}

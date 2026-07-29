@@ -1,0 +1,4 @@
+static %model.DB => %SQLite(':memory:')
+
+prop title = 'CMS sort test fixture'
+prop models = ['page', 'plain', 'coded', 'nosort']

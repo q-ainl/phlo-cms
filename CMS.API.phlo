@@ -102,6 +102,25 @@ prop recordId {
 }
 method syncMany => loop($this->fieldsMany, fn($field) => $field->sync($this->model, $this->recordId))
 
+// A hand sorted model hides its sort column, so nothing fills it in. A new record would
+// land on zero and jump to the front, and a record dragged into another group would keep a
+// number that means nothing there and collide with whatever already holds it. Both get the
+// next free position in the group they end up in.
+method applySortPosition($old){
+	if (!class_exists('CMS_list_sort')) return
+	if ((property_exists($this->model, 'listView') ? $this->model::$listView : null) !== 'sort') return
+	$column = CMS_list_sort::sortColumn($this->model)
+	$group = CMS_list_sort::sortGroup($this->model)
+	$value = $group === null ? null : ($this->record->$group ?? null)
+	if (%req->method === 'POST'){
+		if (!$this->record->hasData($column)) $this->record->$column = CMS_list_sort::sortNext($this->model, $value)
+		return
+	}
+	if ($group === null || !$this->record->hasData($group)) return
+	if ((string)$value === (string)CMS_list_sort::sortGroupOf($old, $group)) return
+	$this->record->$column = CMS_list_sort::sortNext($this->model, $value)
+}
+
 method applySave {
 	if (is_array($required = $this->checkRequired)){
 		apply(class: [loop($required, fn($field) => "[name=\"$field->name\"]", ', ') => 'error'], error: 'Fill in all required fields')
@@ -112,16 +131,8 @@ method applySave {
 	foreach ($this->model::fields() AS $column => $field){
 		if ($field->type === 'many' && $this->record->hasData($column)) unset($this->record->$column)
 	}
-	if (%req->method === 'POST'){
-		// A hand sorted model hides its sort column, so nothing fills it in and every new
-		// record would land on zero and jump to the front. Give it the next free position
-		// within its own group instead.
-		if (class_exists('CMS_list_sort') && (property_exists($this->model, 'listView') ? $this->model::$listView : null) === 'sort'){
-			$column = CMS_list_sort::sortColumn($this->model)
-			if (!$this->record->hasData($column)) $this->record->$column = CMS_list_sort::sortNext($this->model, $this->record)
-		}
-		$this->record = $this->model::create(...$this->record)
-	}
+	$this->applySortPosition($old)
+	if (%req->method === 'POST') $this->record = $this->model::create(...$this->record)
 	if (%req->method === 'PUT'){
 		$this->event('beforeSave', $old)
 		$this->event('beforeChange', $old)

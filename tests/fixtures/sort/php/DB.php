@@ -1,0 +1,154 @@
+<?php
+// source:   /srv/control/phlo/resources/DB/DB.phlo
+// phlo:     1.0
+// version:  1.0
+// creator:  q-ai.nl
+// summary:  Database engine class
+// type:     abstract class
+// package:  database
+// frontend: false
+// backend:  true
+// requires: php-ext:pdo
+// tags:     database pdo sql
+abstract class DB extends obj {
+	protected function _PDO(){
+		return error('No PDO connector defined');
+	}
+	public $fieldQuotes = bt;
+	public $savepoint = 0;
+	public $insertIgnore = ' IGNORE';
+	public $insertOnConflict = void;
+	protected function load(string $table, string $columns = '*', string $where = void, string $joins = void, string $group = void, string $limit = void, string $order = void, ...$args){
+		$table = strpos($table, space) || strpos($table, dot) ? $table : "$this->fieldQuotes$table$this->fieldQuotes";
+		$args && $where = ($where ? "$where AND " : void).loop(array_keys($args), fn($column) => $table.dot.$this->quoteId($column).'=?', ' AND ');
+		$joins && $joins = " $joins";
+		$where && $where = " WHERE $where";
+		$group && $group = " GROUP BY $group";
+		$order && $order = " ORDER BY $order";
+		$limit && $limit = " LIMIT $limit";
+		$query = "SELECT $columns FROM $table$joins$where$group$order$limit";
+		return $this->query($query, ...array_values($args));
+	}
+	protected function query($query, ...$args){
+		return $this->queryRun($query, $args, true);
+	}
+	// A worker can hold a MySQL connection past its wait_timeout; the next request's first
+	// query then throws "server has gone away". Retry once on a connection-loss error by
+	// dropping the cached PDO (which reconnects on next access). Only connection errors are
+	// retried, never a normal SQL failure, so a mutation is never silently re-run.
+	protected function queryRun($query, $args, $retry){
+		try {
+			if (!$args) $stmt = $this->PDO->query($query);
+			else {
+				$stmt = $this->PDO->prepare($query);
+				$stmt->execute($args);
+			}
+			if (debug){
+				$match = regex('/\b(UPDATE|INSERT INTO|DELETE FROM|FROM)\b\s+([`"\[]?\w+[`"\]]?)/i', strtr($query, [$this->fieldQuotes => void]));
+				$where = strtr(regex('/\bWHERE (\b.+)/is', $query)[1] ?? void, [' ORDER BY' => void]);
+				$match && debug("Q: $match[1] $match[2]".strtr(rtrim(" $where "), [dq => void])." (".$stmt->rowCount().")");
+			}
+			return $stmt;
+		}
+		catch (\PDOException $e){
+			// Retry only idempotent read statements outside a transaction. WITH is excluded: a `WITH ... UPDATE`;
+			// or `WITH ... DELETE` CTE is a mutation that may already have run before the connection dropped;
+			// (error 2013), and a reconnect would start a fresh, transaction-less session.
+			if (!$retry || !$this->goneAway($e) || $this->PDO->inTransaction() || !preg_match('/^\s*\(*\s*(SELECT|SHOW|EXPLAIN|DESCRIBE|DESC)\b/i', $query)) error('Database error'.colon.lf.$query.lf.lf.$e->getMessage());
+			unset($this->PDO);
+			return $this->queryRun($query, $args, false);
+		}
+	}
+	protected function goneAway($e){
+		return in_array((int)($e->errorInfo[1] ?? 0), [2006, 2013], true) || stripos($e->getMessage(), 'gone away') !== false || stripos($e->getMessage(), 'lost connection') !== false;
+	}
+	protected function column(...$args){
+		return $this->load(...$args)->fetchAll(\PDO::FETCH_COLUMN);
+	}
+	protected function item(...$args){
+		return ($v = $this->load(...$args)->fetch(\PDO::FETCH_COLUMN)) === false ? null : $v;
+	}
+	protected function pair(...$args){
+		return $this->load(...$args)->fetchAll(\PDO::FETCH_KEY_PAIR);
+	}
+	protected function group(...$args){
+		return $this->load(...$args)->fetchAll(\PDO::FETCH_GROUP|\PDO::FETCH_CLASS, obj::class);
+	}
+	protected function records(...$args){
+		return $this->load(...$args)->fetchAll(\PDO::FETCH_CLASS|\PDO::FETCH_UNIQUE, obj::class);
+	}
+	protected function rows(...$args){
+		return $this->load(...$args)->fetchAll(\PDO::FETCH_CLASS, obj::class);
+	}
+	protected function record(...$args){
+		return $this->load(...$args)->fetchObject(obj::class) ?: null;
+	}
+	protected function quoteList(array $ids){
+		return loop($ids, fn($id) => $this->PDO->quote((string)$id), comma);
+	}
+	// Safely quote a SQL identifier (column/table): wrap in the connector's quote char and double any embedded
+	// quote, so an attacker-controlled array key cannot break out of the identifier (values are always ?-bound).
+	protected function quoteId($id){
+		return $this->fieldQuotes.str_replace($this->fieldQuotes, $this->fieldQuotes.$this->fieldQuotes, (string)$id).$this->fieldQuotes;
+	}
+	protected function create(string $table, ...$data){
+		if ($ignore = $data['ignore'] ?? false) unset($data['ignore']);
+		$columns = implode(comma, loop(array_keys($data), fn($k) => $this->quoteId($k)));
+		$values = implode(comma, array_fill(0, count($data), qm));
+		$query = "INSERT".($ignore ? $this->insertIgnore : void)." INTO $table ($columns) VALUES ($values)".($ignore ? $this->insertOnConflict : void);
+		$this->query($query, ...array_values(loop($data, fn($value) => is_a($value, obj::class) ? $value->id : $value)));
+		return $this->lastId() ?: ($data['id'] ?? null);
+	}
+	protected function lastId(){
+		return $this->PDO->lastInsertId();
+	}
+	protected function change(string $table, string $where, ...$data){
+		$whereCount = substr_count($where, qm);
+		$updates = isset($data['updates']) ? $data['updates'] : void;
+		unset($data['updates']);
+		$updates .= (($wheres = array_slice(array_keys($data), $whereCount)) && $updates ? comma : void).loop($wheres, fn($key) => $this->quoteId($key).'=?', comma);
+		$query = "UPDATE $table SET $updates WHERE $where";
+		$args = array_values([...array_slice($data, $whereCount), ...array_slice($data, 0, $whereCount)]);
+		return $this->query($query, ...$args)->rowCount();
+	}
+	protected function delete(string $table, string $where, ...$args){
+		return $this->query("DELETE FROM $table WHERE $where", ...$args)->rowCount();
+	}
+	protected function begin(){
+		return $this->PDO->beginTransaction();
+	}
+	protected function commit(){
+		return $this->PDO->commit();
+	}
+	protected function rollback(){
+		return $this->PDO->inTransaction() && $this->PDO->rollBack();
+	}
+	protected function transaction($callback){
+		if (!$this->PDO->inTransaction()){
+			$this->begin;
+			try {
+				$result = $callback();
+				$this->commit;
+				return $result;
+			} catch (\Throwable $e){
+				$this->rollback;
+				throw $e;
+			}
+		}
+		// Nested: a savepoint gives the inner unit its own rollback point, so its failure;
+		// (e.g. an audit insert) is undone even when the outer transaction commits.
+		$sp = 'phlo_sp_'.(++$this->savepoint);
+		$this->PDO->exec('SAVEPOINT '.$sp);
+		try {
+			$result = $callback();
+			$this->PDO->exec('RELEASE SAVEPOINT '.$sp);
+			$this->savepoint--;
+			return $result;
+		} catch (\Throwable $e){
+			$this->PDO->exec('ROLLBACK TO SAVEPOINT '.$sp);
+			$this->PDO->exec('RELEASE SAVEPOINT '.$sp);
+			$this->savepoint--;
+			throw $e;
+		}
+	}
+}

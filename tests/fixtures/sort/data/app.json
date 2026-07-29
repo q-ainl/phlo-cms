@@ -1,0 +1,19 @@
+{
+    "resources": [
+        "DB/DB",
+        "DB/SQLite",
+        "DB/model",
+        "fields/field",
+        "fields/text",
+        "fields/number",
+        "tag",
+        "payload",
+        "session",
+        "CMS",
+        "CMS.list",
+        "CMS.list.sort"
+    ],
+    "paths": {
+        "resources": ["/srv/control/CMS/"]
+    }
+}
