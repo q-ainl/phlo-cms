@@ -1,18 +1,45 @@
 @ extends: CMS_list
 
 static sortColumn($model) => property_exists($model, 'sortColumn') ? $model::$sortColumn : 'sort'
+static sortGroup($model) => property_exists($model, 'sortGroup') ? $model::$sortGroup : null
+
+static sortIds($model, array $ids) => array_values(array_map(fn($id) => $model::$idType === 'int' ? (int)$id : (string)$id, $ids))
+
+static sortGroupOf($record, $group) => $record->objData[$group] ?? $record->$group
 
 route async PUT api sort $model @ids {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!in_array($model, (array)%app->models, true)) return apply(error: 'Unknown model')
 	$column = static::sortColumn($model)
-	if (!isset($model::fields()[$column])) return apply(error: 'Model has no sort column')
-	if (!$model::canChange()) return apply(error: 'Not allowed')
-	foreach ((array)%payload->ids AS $index => $id) $model::change('id=?', (int)$id, ...[$column => $index + 1])
+	$fields = $model::fields()
+	if (!isset($fields[$column])) return apply(error: 'Model has no sort column')
+	$group = static::sortGroup($model)
+	if ($group !== null && !isset($fields[$group])) return apply(error: 'Model has no sort group')
+	$key = $model::idColumn()
+	$ids = static::sortIds($model, (array)%payload->ids)
+	if (!$ids) return apply(error: 'Nothing to sort')
+	if (count($ids) !== count(array_unique($ids, SORT_REGULAR))) return apply(error: 'Duplicate records')
+	$first = $model::record(...[$key => $ids[0]])
+	if (!$first) return apply(error: 'Unknown record')
+	if ($group !== null && ($value = static::sortGroupOf($first, $group)) === null) return apply(error: 'Record has no sort group')
+	$all = $group !== null ? $model::records(...[$group => $value], order: $column.' ASC') : $model::records(order: $column.' ASC')
+	foreach ($ids AS $id){
+		if (!isset($all[$id])) return apply(error: 'Record outside this group')
+		if (!$model::canChange($all[$id])) return apply(error: 'Not allowed')
+	}
+	$order = array_keys($all)
+	$slots = []
+	foreach ($order AS $index => $id) if (in_array($id, $ids, true)) $slots[] = $index
+	foreach ($slots AS $slot => $index) $order[$index] = $ids[$slot]
+	$model::transaction(function() use ($model, $all, $order, $column, $key){
+		foreach ($order AS $index => $id) if ((int)$all[$id]->$column !== $index + 1) $model::change($key.'=?', $id, ...[$column => $index + 1])
+	})
 	return apply(state: false)
 }
 
 prop fieldCount => count($this->fields) + 1
+
+method sortGroupValue($record) => ($group = static::sortGroup($this->model)) ? (string)static::sortGroupOf($record, $group) : void
 
 $this->type = 'default'
 
@@ -35,8 +62,8 @@ view body:
 view bodyRecords:
 <if $records = $this->records>
 	<foreach $this->records AS $id => $record>
-		<tr data-id=$id>
-			<td.sort>⬍</td>
+		<tr data-id=$id data-sort-group="{[ $this->sortGroupValue($record) ]}">
+			<td.sort title="{[ en('Drag to reorder') ]}">⬍</td>
 			<foreach $this->fields AS $column => $field>
 				{{ $this->field($field, $record, 'td') }}
 			</foreach>
@@ -52,6 +79,7 @@ let dragStartOrder = null
 let dragTbody = null
 
 const getOrder = tbody => [...tbody.querySelectorAll('tr[data-id]')].map(tr => tr.dataset.id)
+const sameGroup = (a, b) => a.dataset.sortGroup === b.dataset.sortGroup
 const arraysEqual = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
 
 on('pointerdown', 'td.sort', (cell, e) => {
@@ -68,7 +96,7 @@ on('pointerdown', 'td.sort', (cell, e) => {
 on('pointermove', 'body', (body, e) => {
 	if (!draggingRow) return false
 	const tr = e.target.closest('tr')
-	if (!tr || tr.parentNode !== dragTbody) return false
+	if (!tr || tr.parentNode !== dragTbody || !sameGroup(tr, draggingRow)) return false
 	const rect = tr.getBoundingClientRect()
 	const offset = e.clientY - rect.top
 	if (offset < rect.height / 2) dragTbody.insertBefore(draggingRow, tr)
@@ -81,7 +109,11 @@ on('pointerup', 'body', (body, e) => {
 	draggingRow.classList.remove('dragging')
 	if (dragTbody && dragStartOrder){
 		const newOrder = getOrder(dragTbody)
-		if (!arraysEqual(dragStartOrder, newOrder)) app.put(`api/sort/${draggingRow.closest('[data-model]').dataset.model}`, {ids: newOrder})
+		if (!arraysEqual(dragStartOrder, newOrder)){
+			const group = draggingRow.dataset.sortGroup
+			const ids = [...dragTbody.querySelectorAll('tr[data-id]')].filter(tr => tr.dataset.sortGroup === group).map(tr => tr.dataset.id)
+			app.put(`api/sort/${draggingRow.closest('[data-model]').dataset.model}`, {ids})
+		}
 	}
 	draggingRow = null
 	dragTbody = null
