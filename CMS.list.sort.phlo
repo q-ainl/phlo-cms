@@ -10,6 +10,7 @@ static sortGroupOf($record, $group) => $record->objData[$group] ?? $record->$gro
 route async PUT api sort $model @ids {
 	if (!%CSRF->verify) return apply(error: 'Invalid CSRF token')
 	if (!in_array($model, (array)%app->models, true)) return apply(error: 'Unknown model')
+	if ((property_exists($model, 'listView') ? $model::$listView : null) !== 'sort') return apply(error: 'Model does not sort by hand')
 	$column = static::sortColumn($model)
 	$fields = $model::fields()
 	if (!isset($fields[$column])) return apply(error: 'Model has no sort column')
@@ -23,16 +24,20 @@ route async PUT api sort $model @ids {
 	if (!$first) return apply(error: 'Unknown record')
 	if ($group !== null && ($value = static::sortGroupOf($first, $group)) === null) return apply(error: 'Record has no sort group')
 	$all = $group !== null ? $model::records(...[$group => $value], order: $column.' ASC') : $model::records(order: $column.' ASC')
-	foreach ($ids AS $id){
-		if (!isset($all[$id])) return apply(error: 'Record outside this group')
-		if (!$model::canChange($all[$id])) return apply(error: 'Not allowed')
-	}
+	foreach ($ids AS $id) if (!isset($all[$id])) return apply(error: 'Record outside this group')
 	$order = array_keys($all)
 	$slots = []
 	foreach ($order AS $index => $id) if (in_array($id, $ids, true)) $slots[] = $index
 	foreach ($slots AS $slot => $index) $order[$index] = $ids[$slot]
-	$model::transaction(function() use ($model, $all, $order, $column, $key){
-		foreach ($order AS $index => $id) if ((int)$all[$id]->$column !== $index + 1) $model::change($key.'=?', $id, ...[$column => $index + 1])
+	// Renumbering normalises the whole group, so it writes records the browser never sent.
+	// Permission is therefore checked over everything that actually changes, not over what
+	// was submitted: a record the user may not change must not be moved by dragging its
+	// neighbour either.
+	$writes = []
+	foreach ($order AS $index => $id) if ((int)$all[$id]->$column !== $index + 1) $writes[$id] = $index + 1
+	foreach ($writes AS $id => $position) if (!$model::canChange($all[$id])) return apply(error: 'Not allowed')
+	$model::transaction(function() use ($model, $writes, $column, $key){
+		foreach ($writes AS $id => $position) $model::change($key.'=?', $id, ...[$column => $position])
 	})
 	return apply(state: false)
 }
