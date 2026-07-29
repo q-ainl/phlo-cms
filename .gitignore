@@ -18,3 +18,7 @@ tests/fixtures/cmshttp/www/app.js
 tests/fixtures/cmshttp/data/errors.json
 tests/fixtures/cmshttp/data/app.json
 tests/fixtures/cmshttp/data/test.db
+
+# Dev dependency for the frontend tests
+node_modules/
+package-lock.json

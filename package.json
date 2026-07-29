@@ -1,0 +1,11 @@
+{
+	"name": "phlo-cms",
+	"private": true,
+	"description": "Frontend tests for the CMS. The server side is tested with phpunit; this covers the behaviour that only exists in a browser.",
+	"scripts": {
+		"test": "node --test tests/js/"
+	},
+	"devDependencies": {
+		"jsdom": "^24.1.3"
+	}
+}
