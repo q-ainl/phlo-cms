@@ -27,7 +27,7 @@ static listOptions(CMS $CMS, ?string $req = null){
 		$filters = $CMS->filters
 		if ($req->f && ($filters[$req->f]['filter'] ?? null)) $opts->where = ($opts->where ? '('.$opts->where.') AND ' : void).$filters[$CMS->f = $req->f]['filter']
 		$sorts = $CMS->sorts
-		if ($req->o && ($sorts[$req->o]['order'] ?? null)) $opts->order = $sorts[$req->o]['order']
+		if ($req->o && ($sorts[$req->o]['order'] ?? null)) $opts->order = $sorts[$CMS->o = $req->o]['order']
 		if (isset($req->p)) $page = max(0, intval($req->p))
 	}
 	($order = $CMS->model::$order ?? (current($CMS->sorts)['order'] ?? null)) && $opts->order ??= $order
