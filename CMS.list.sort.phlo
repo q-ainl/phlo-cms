@@ -23,6 +23,10 @@ static sortGroupRecords($model, $column, $group, $value){
 // number that means nothing there. The group value is passed in rather than read from the
 // record, because a record being saved holds its new group on the property and its old one
 // in objData.
+//
+// Deliberately not locked: two creates in the very same moment can pick the same number.
+// That is a back office, not a checkout, and the first drag afterwards normalises the group
+// anyway, so the reading costs less than a lock on every insert.
 static sortNext($model, $value):int {
 	$column = static::sortColumn($model)
 	$rows = static::sortGroupRecords($model, $column, static::sortGroup($model), $value)
@@ -98,7 +102,7 @@ view bodyRecords:
 <if $records = $this->records>
 	<foreach $this->records AS $id => $record>
 		<tr data-id=$id data-sort-group="{[ $this->sortGroupValue($record) ]}">
-			{( $this->o ? '<td class="sort sort--off" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</td>' : '<td class="sort" title="'.esc(en('Drag to reorder')).'">⬍</td>' )}
+			{( $this->o ? '<td class="sort sort--off"><span class="sort__grip" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</span></td>' : '<td class="sort"><button type="button" class="sort__grip" aria-label="'.esc(en('Move this row: drag it, or use the arrow keys')).'" title="'.esc(en('Drag to reorder')).'">⬍</button></td>' )}
 			<foreach $this->fields AS $column => $field>
 				{{ $this->field($field, $record, 'td') }}
 			</foreach>
@@ -116,6 +120,20 @@ let dragTbody = null
 const getOrder = tbody => [...tbody.querySelectorAll('tr[data-id]')].map(tr => tr.dataset.id)
 const sameGroup = (a, b) => a.dataset.sortGroup === b.dataset.sortGroup
 const arraysEqual = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
+const groupRows = row => [...row.parentNode.querySelectorAll('tr[data-id]')].filter(r => sameGroup(r, row))
+
+// Only the rows of the dragged group go along: the server puts them back into the slots that
+// group already held and leaves the rest alone.
+const saveOrder = row => app.put(`api/sort/${row.closest('[data-model]').dataset.model}`, {ids: groupRows(row).map(r => r.dataset.id)})
+
+const endDrag = save => {
+	if (!draggingRow) return
+	draggingRow.classList.remove('dragging')
+	if (save && dragStartOrder && !arraysEqual(dragStartOrder, getOrder(dragTbody))) saveOrder(draggingRow)
+	draggingRow = null
+	dragTbody = null
+	dragStartOrder = null
+}
 
 on('pointerdown', 'td.sort', (cell, e) => {
 	const tr = cell.closest('tr')
@@ -125,12 +143,17 @@ on('pointerdown', 'td.sort', (cell, e) => {
 	dragTbody = tr.parentNode
 	dragStartOrder = getOrder(dragTbody)
 	tr.classList.add('dragging')
+	// Capture keeps the drag alive when the pointer leaves the row or the window, so letting
+	// go outside cannot strand it half way.
+	cell.setPointerCapture?.(e.pointerId)
 	return false
 })
 
+// The row under the pointer, not the event target: with the pointer captured every move
+// reports the cell that started the drag.
 on('pointermove', 'body', (body, e) => {
 	if (!draggingRow) return false
-	const tr = e.target.closest('tr')
+	const tr = document.elementFromPoint(e.clientX, e.clientY)?.closest('tr[data-id]')
 	if (!tr || tr.parentNode !== dragTbody || !sameGroup(tr, draggingRow)) return false
 	const rect = tr.getBoundingClientRect()
 	const offset = e.clientY - rect.top
@@ -139,32 +162,42 @@ on('pointermove', 'body', (body, e) => {
 	return false
 })
 
-on('pointerup', 'body', (body, e) => {
-	if (!draggingRow) return false
-	draggingRow.classList.remove('dragging')
-	if (dragTbody && dragStartOrder){
-		const newOrder = getOrder(dragTbody)
-		if (!arraysEqual(dragStartOrder, newOrder)){
-			const group = draggingRow.dataset.sortGroup
-			const ids = [...dragTbody.querySelectorAll('tr[data-id]')].filter(tr => tr.dataset.sortGroup === group).map(tr => tr.dataset.id)
-			app.put(`api/sort/${draggingRow.closest('[data-model]').dataset.model}`, {ids})
-		}
-	}
-	draggingRow = null
-	dragTbody = null
-	dragStartOrder = null
-	return false
+on('pointerup', 'body', (body, e) => endDrag(true))
+on('pointercancel', 'body', (body, e) => endDrag(true))
+
+// The same move without a mouse. The handle is a button, so it takes focus on its own and a
+// screen reader reads what it does; the arrows walk the row through its own group.
+on('keydown', 'td.sort button', (btn, e) => {
+	if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+	const tr = btn.closest('tr')
+	const rows = groupRows(tr)
+	const to = rows.indexOf(tr) + (e.key === 'ArrowUp' ? -1 : 1)
+	if (to < 0 || to >= rows.length) return
+	e.preventDefault()
+	if (e.key === 'ArrowUp') tr.parentNode.insertBefore(tr, rows[to])
+	else tr.parentNode.insertBefore(tr, rows[to].nextElementSibling)
+	saveOrder(tr)
+	btn.focus()
 })
 </script>
 
 <style>
 td.sort {
 	cursor: grab
-	font-size: 2em
 	text-align: center
 	touch-action: none
 	user-select: none
 	vertical-align: middle !important
+}
+.sort__grip {
+	font: inherit
+	font-size: 2em
+	line-height: 1
+	padding: 0
+	border: 0
+	background: none
+	color: inherit
+	cursor: inherit
 }
 td.sort--off {
 	cursor: default

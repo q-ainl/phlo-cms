@@ -30,6 +30,9 @@ class CMS_list_sort extends CMS_list {
 	// number that means nothing there. The group value is passed in rather than read from the
 	// record, because a record being saved holds its new group on the property and its old one
 	// in objData.
+	// Deliberately not locked: two creates in the very same moment can pick the same number.
+	// That is a back office, not a checkout, and the first drag afterwards normalises the group
+	// anyway, so the reading costs less than a lock on every insert.
 	public static function sortNext($model, $value):int {
 		$column = static::sortColumn($model);
 		$rows = static::sortGroupRecords($model, $column, static::sortGroup($model), $value);
@@ -108,7 +111,7 @@ class CMS_list_sort extends CMS_list {
 		if ($records = $this->records){
 			foreach ($this->records AS $id => $record){
 				$_[] = "<tr data-id=\"$id\" data-sort-group=\"".(esc($this->sortGroupValue($record)))."\">";
-				$_[] = "	".(indentView($this->o ? '<td class="sort sort--off" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</td>' : '<td class="sort" title="'.esc(en('Drag to reorder')).'">⬍</td>' ))."";
+				$_[] = "	".(indentView($this->o ? '<td class="sort sort--off"><span class="sort__grip" title="'.esc(en('Switch back to the manual order to drag')).'">⬍</span></td>' : '<td class="sort"><button type="button" class="sort__grip" aria-label="'.esc(en('Move this row: drag it, or use the arrow keys')).'" title="'.esc(en('Drag to reorder')).'">⬍</button></td>' ))."";
 				foreach ($this->fields AS $column => $field){
 					$_[] = "	".(indentView($this->field($field, $record, 'td') ))."";
 				}
