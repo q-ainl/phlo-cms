@@ -227,7 +227,8 @@
 			['php' => 16, 'phlo' => 13, 'name' => 'min'],
 			['php' => 18, 'phlo' => 15, 'name' => 'label'],
 			['php' => 21, 'phlo' => 16, 'name' => 'input'],
-			['php' => 24, 'phlo' => 18, 'name' => 'objColumns'],
+			['php' => 24, 'phlo' => 19, 'name' => 'parse'],
+			['php' => 30, 'phlo' => 25, 'name' => 'objColumns'],
 		],
 	],
 	'/srv/control/CMS/tests/fixtures/sort/php/payload.php' => [
