@@ -117,4 +117,16 @@ final class CmsHttpTest extends TestCase {
 		$this->assertSame('Not allowed', (json_decode($body, true)['error'] ?? null), 'a model that sets canDelete=false refuses the delete even with a valid token');
 		$this->assertSame('permanent', $this->dbValue('locked', 1, 'title'), 'the forbidden delete left the row intact');
 	}
+
+	public function testMissingRecordsReturnNotFoundForEveryWriteRoute():void {
+		$h = ['X-Requested-With: phlo', 'X-CSRF-Token: '.self::$token];
+		foreach ([
+			['PUT', '/api/post/999', self::form(['title' => 'missing', 'body' => 'missing'])],
+			['PATCH', '/api/post/999/title', self::form(['title' => 'missing'])],
+			['DELETE', '/api/post/999', null],
+		] as [$method, $path, $body]){
+			[$status, $response] = self::http($method, $path, $h, $body);
+			$this->assertSame(404, $status, "$method $path must return 404, not mutate or dereference a missing record: $response");
+		}
+	}
 }
