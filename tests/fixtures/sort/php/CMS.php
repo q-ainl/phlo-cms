@@ -1,6 +1,6 @@
 <?php
 // source: /srv/control/CMS/CMS.phlo
-// phlo:   1.0
+// phlo:   1.0.1
 // type:   abstract class
 abstract class CMS extends obj {
 	public static function GETSectionTokenFilename($section, $token, $filename){

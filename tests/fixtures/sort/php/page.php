@@ -1,6 +1,6 @@
 <?php
 // source:  /srv/control/CMS/tests/fixtures/sort/page.phlo
-// phlo:    1.0
+// phlo:    1.0.1
 // class:   page
 // extends: model
 class page extends model {

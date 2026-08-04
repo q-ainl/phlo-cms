@@ -1,6 +1,6 @@
 <?php
 // source:   /srv/control/phlo/resources/fields/number.phlo
-// phlo:     1.0
+// phlo:     1.0.1
 // extends:  field
 // class:    field_number
 // version:  1.0
@@ -15,7 +15,7 @@ class field_number extends field {
 	public $length = 5;
 	public $min = 0;
 	protected function label($record){
-		return number_format($record->{$this->name}, $this->decimals, comma, dot);
+		return ($value = $record->{$this->name}) === null || $value === void ? dash : number_format($value, $this->decimals, comma, dot);
 	}
 	protected function input($record){
 		return input(type: 'number', name: $this->name, value: $record->{$this->name} ?? $this->default, step: $this->decimals ? dot.str_repeat('0', $this->decimals - 1).'1' : null, min: $this->min, class: 'field');

@@ -1,6 +1,6 @@
 <?php
 // source:   /srv/control/phlo/resources/fields/text.phlo
-// phlo:     1.0
+// phlo:     1.0.1
 // extends:  field
 // class:    field_text
 // version:  1.0

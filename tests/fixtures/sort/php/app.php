@@ -1,6 +1,6 @@
 <?php
 // source: /srv/control/CMS/tests/fixtures/sort/app.phlo
-// phlo:   1.0
+// phlo:   1.0.1
 class app extends obj {
 	public static function route():bool {
 		return route('GET', '$section:files,images,thumbs $token.20 $filename', cb: 'CMS::GETSectionTokenFilename') ||

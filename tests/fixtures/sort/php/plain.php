@@ -1,6 +1,6 @@
 <?php
 // source:  /srv/control/CMS/tests/fixtures/sort/plain.phlo
-// phlo:    1.0
+// phlo:    1.0.1
 // class:   plain
 // extends: model
 class plain extends model {

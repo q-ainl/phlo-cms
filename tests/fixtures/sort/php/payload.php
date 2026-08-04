@@ -1,6 +1,6 @@
 <?php
 // source:   /srv/control/phlo/resources/payload.phlo
-// phlo:     1.0
+// phlo:     1.0.1
 // version:  1.0
 // creator:  q-ai.nl
 // summary:  POST, PUT, PATCH, QUERY and file-upload data object

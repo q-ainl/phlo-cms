@@ -1,6 +1,6 @@
 <?php
 // source:  /srv/control/CMS/CMS.list.phlo
-// phlo:    1.0
+// phlo:    1.0.1
 // extends: CMS
 class CMS_list extends CMS {
 	public static function BothGETListOptions($list, $options){

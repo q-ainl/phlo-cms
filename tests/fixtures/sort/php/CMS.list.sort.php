@@ -1,6 +1,6 @@
 <?php
 // source:  /srv/control/CMS/CMS.list.sort.phlo
-// phlo:    1.0
+// phlo:    1.0.1
 // extends: CMS_list
 class CMS_list_sort extends CMS_list {
 	public static function sortColumn($model){

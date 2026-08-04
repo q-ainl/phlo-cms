@@ -1,6 +1,6 @@
 <?php
 // source:  /srv/control/CMS/tests/fixtures/sort/sortprobe.phlo
-// phlo:    1.0
+// phlo:    1.0.1
 // summary: Sort test probe. Drives CMS_list_sort::sortApply straight against SQLite models and
 class sortprobe extends obj {
 	public static function run($fn){

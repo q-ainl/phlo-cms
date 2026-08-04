@@ -1,6 +1,6 @@
 <?php
 // source:  /srv/control/CMS/tests/fixtures/sort/nosort.phlo
-// phlo:    1.0
+// phlo:    1.0.1
 // class:   nosort
 // extends: model
 class nosort extends model {

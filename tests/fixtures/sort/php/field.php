@@ -1,6 +1,6 @@
 <?php
 // source:   /srv/control/phlo/resources/fields/field.phlo
-// phlo:     1.0
+// phlo:     1.0.1
 // type:     abstract class
 // version:  1.0
 // creator:  q-ai.nl

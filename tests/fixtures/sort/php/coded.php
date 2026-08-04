@@ -1,6 +1,6 @@
 <?php
 // source:  /srv/control/CMS/tests/fixtures/sort/coded.phlo
-// phlo:    1.0
+// phlo:    1.0.1
 // class:   coded
 // extends: model
 class coded extends model {
