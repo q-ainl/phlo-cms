@@ -5,6 +5,9 @@
         "DB/SQLite",
         "CMS",
         "CMS.API",
+        "CMS.layout",
+        "CMS.list",
+        "CMS.record",
         "fields/field",
         "fields/text",
         "fields/number",
@@ -14,8 +17,10 @@
         "session",
         "cookies",
         "payload",
+        "active",
         "create",
         "tag",
+        "tags.form",
         "phlo.exists"
     ],
     "paths": {

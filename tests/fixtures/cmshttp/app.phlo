@@ -2,6 +2,7 @@ static %model.DB => %SQLite(data.'test.db')
 
 prop title = 'CMS HTTP test fixture'
 prop models = ['post', 'locked', 'tagpk', 'hooked']
+prop menu = []
 
 static setup {
 	post::prepareTable()
@@ -12,6 +13,8 @@ static setup {
 }
 
 route GET csrf => view('ok')
+
+if (!function_exists('en')) { function en($text, ...$args){ return $args ? sprintf($text, ...$args) : $text; } }
 
 if (app::route()) return
 return output(['error' => 'not found'], code: 404)

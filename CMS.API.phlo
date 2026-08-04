@@ -3,7 +3,7 @@ route async POST api $record {
 	if (!$this->model = CMS::uriRecordFind($record)) return false
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
 	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))))
-	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$this->recordId)
+	$this->applySave && $this->renderRecord($this->model, $this->recordId)
 }
 
 route async POST api $record $id $fieldName {
@@ -13,7 +13,7 @@ route async POST api $record $id $fieldName {
 	$this->model = $field->obj
 	if (!$this->model::canCreate()) return apply(error: 'Not allowed')
 	$this->record = phlo($this->model, ...array_intersect_key(%payload->objData, array_filter($this->fields, fn($f) => $this->writable($f))), ...[$field->objKey($parent) => $id])
-	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$this->recordId)
+	$this->applySave && $this->renderChild($parent, $id, $fieldName, $this->recordId)
 }
 
 route async PUT api $record $id {
@@ -23,7 +23,7 @@ route async PUT api $record $id {
 	$this->record = $this->model::record(...[$this->idColumn => $id])
 	if (!$this->record) return false
 	if (!$this->model::canChange($this->record)) return apply(error: 'Not allowed')
-	$this->applySave && location(slash.($this->model::$uriRecord ?? $this->model).slash.$id)
+	$this->applySave && $this->renderRecord($this->model, $id)
 }
 
 route async PUT api $record $id $fieldName $childId {
@@ -34,7 +34,7 @@ route async PUT api $record $id $fieldName $childId {
 	$this->record = $this->model::record(...[$this->idColumn => $childId])
 	if (!$this->record || !$field->objOwns($this->record, $id, $parent)) return false
 	if (!$this->model::canChange($this->record)) return apply(error: 'Not allowed')
-	$this->applySave && location(slash.$record.slash.$id.slash.$fieldName.slash.$childId)
+	$this->applySave && $this->renderChild($parent, $id, $fieldName, $childId)
 }
 
 route async PATCH api $model $id $fieldName {
@@ -46,9 +46,8 @@ route async PATCH api $model $id $fieldName {
 	if (!$model::canChange($this->record)) return apply(error: 'Not allowed')
 	$this->parsePayload($this->fieldsPatch($fieldName))
 	$this->record->objSave
-	$referer = (string)($_SERVER['HTTP_REFERER'] ?? void)
-	$expectedPrefix = 'https://'.%req->host.'/'
-	location(str_starts_with($referer, $expectedPrefix) ? substr($referer, strlen('https://'.%req->host)) : (slash.$model.slash.$id))
+	$referer = parse_url((string)($_SERVER['HTTP_REFERER'] ?? void), PHP_URL_PATH)
+	return apply(path: trim((string)($referer ?: slash.$model.slash.$id), slash))
 }
 
 route async DELETE api $record $id {
@@ -59,7 +58,7 @@ route async DELETE api $record $id {
 	if (!$this->record) return false
 	if (!$model::canDelete($this->record)) return apply(error: 'Not allowed')
 	$model::delete($this->idColumn.'=?', $id)
-	location(slash.($model::$uriList ?? $model::$table))
+	$this->renderList($model)
 }
 
 route async DELETE api $record $id $fieldName $childId {
@@ -70,7 +69,26 @@ route async DELETE api $record $id $fieldName $childId {
 	if (!$this->record || !$field->objOwns($this->record, $id, $parent)) return false
 	if (!$this->model::canDelete($this->record)) return apply(error: 'Not allowed')
 	$field->obj::delete($this->idColumn.'=?', $childId)
-	location(slash.($parent::$uriRecord ?? $parent).slash.$id)
+	$this->renderRecord($parent, $id)
+}
+
+method renderRecord($model, $id, $replace = false){
+	%app->active = $model
+	$CMS = CMS($model, 'record', id: $id)
+	if (!$CMS->record) return main(tag('section', tag('h1', en('Not found')).tag('p', en('This record no longer exists.'))), en('Not found'))
+	return main($CMS, $CMS->title, path: ($model::$uriRecord ?? $model).slash.$id, pathReplace: $replace)
+}
+
+method renderList($model){
+	%app->active = $model
+	$CMS = CMS($model, 'list')
+	return main($CMS, $CMS->title, path: $model::$uriList ?? $model::$table)
+}
+
+method renderChild($parent, $id, $fieldName, $childId){
+	%app->active = $parent
+	$CMS = CMS($parent, 'record', id: $id, childField: $fieldName, childId: $childId, childMode: 'record', hideBody: true)
+	return main($CMS, $CMS->title, path: ($parent::$uriRecord ?? $parent).slash.$id.slash.$fieldName.slash.$childId)
 }
 
 method event($event, ...$args) => method_exists($this->model, $event) && $this->record->$event(...$args)

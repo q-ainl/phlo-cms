@@ -92,10 +92,14 @@ final class CmsPkHooksTest extends TestCase {
 		$h = $this->headers();
 
 		[, $body] = self::http('POST', '/api/tagpk', $h, self::form(['code' => 'blue', 'label' => 'Blue']));
-		$this->assertSame('/tagpk/blue', (json_decode($body, true)['location'] ?? null), 'a create on a custom-PK model returns the location keyed by that PK');
+		$response = json_decode($body, true);
+		$this->assertSame('tagpk/blue', $response['path'] ?? null, 'a create on a custom-PK model returns the path keyed by that PK');
+		$this->assertArrayHasKey('main', $response, 'a custom-PK create renders the record in the same response');
 
 		[, $body] = self::http('PUT', '/api/tagpk/red', $h, self::form(['code' => 'red', 'label' => 'Bright red']));
-		$this->assertSame('/tagpk/red', (json_decode($body, true)['location'] ?? null), 'an update addressed by the custom PK returns the record location');
+		$response = json_decode($body, true);
+		$this->assertSame('tagpk/red', $response['path'] ?? null, 'an update addressed by the custom PK returns the record path');
+		$this->assertArrayHasKey('main', $response, 'a custom-PK update renders the record in the same response');
 		$this->assertSame('Bright red', $this->evalValue("tagpk::record(code: 'red')?->label"), 'the update persists through the custom PK');
 
 		self::http('DELETE', '/api/tagpk/red', $h);
@@ -107,7 +111,9 @@ final class CmsPkHooksTest extends TestCase {
 		$h = $this->headers();
 
 		[, $body] = self::http('POST', '/api/hooked', $h, self::form(['title' => 'Hello World']));
-		$this->assertSame('/hooked/1', (json_decode($body, true)['location'] ?? null), 'the create succeeds');
+		$response = json_decode($body, true);
+		$this->assertSame('hooked/1', $response['path'] ?? null, 'the create returns the record path');
+		$this->assertArrayHasKey('main', $response, 'the create renders the record in the same response');
 		$counts = $this->evalValue("file_get_contents(data.'hooks.json')");
 		$counts = is_string($counts) ? json_decode($counts, true) : $counts;
 		$this->assertSame(1, $counts['beforeSave'] ?? 0, 'beforeSave fires exactly once on create');

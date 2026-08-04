@@ -100,14 +100,22 @@ final class CmsHttpTest extends TestCase {
 		$h = ['X-Requested-With: phlo', 'X-CSRF-Token: '.self::$token];
 
 		[, $body] = self::http('POST', '/api/post', $h, self::form(['title' => 'first', 'body' => 'hello']));
-		$this->assertSame('/post/1', (json_decode($body, true)['location'] ?? null), 'a valid create returns the new record location');
+		$response = json_decode($body, true);
+		$this->assertSame('post/1', $response['path'] ?? null, 'a valid create returns the new record path');
+		$this->assertArrayHasKey('main', $response, 'a valid create renders the new record in the same response');
+		$this->assertArrayNotHasKey('location', $response, 'a valid create does not trigger a second request');
 		$this->assertSame('first', $this->dbValue('post', 1, 'title'), 'the create persists the posted title');
 
 		[, $body] = self::http('PUT', '/api/post/1', $h, self::form(['title' => 'edited', 'body' => 'hello']));
-		$this->assertSame('/post/1', (json_decode($body, true)['location'] ?? null), 'a valid update returns the record location');
+		$response = json_decode($body, true);
+		$this->assertSame('post/1', $response['path'] ?? null, 'a valid update returns the record path');
+		$this->assertArrayHasKey('main', $response, 'a valid update renders the fresh record in the same response');
 		$this->assertSame('edited', $this->dbValue('post', 1, 'title'), 'the update persists the new title');
 
 		[, $body] = self::http('DELETE', '/api/post/1', $h);
+		$response = json_decode($body, true);
+		$this->assertSame('posts', $response['path'] ?? null, 'a delete returns the list path');
+		$this->assertArrayHasKey('main', $response, 'a delete renders the fresh list in the same response');
 		$this->assertNull($this->dbValue('post', 1, 'title'), 'the delete removes the row');
 	}
 

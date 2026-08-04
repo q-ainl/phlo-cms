@@ -2,6 +2,7 @@
 @ extends: model
 
 static table = 'hookeds'
+method __toString => (string)$this->title
 
 static schema => arr(
 	id: field(type: 'number', title: 'ID'),

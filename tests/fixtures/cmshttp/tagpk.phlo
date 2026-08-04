@@ -3,6 +3,7 @@
 
 static table = 'tagpks'
 static idColumn = 'code'
+method __toString => (string)$this->label
 
 static schema => arr(
 	code: field(type: 'text', title: 'Code'),
