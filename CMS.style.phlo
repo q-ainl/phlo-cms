@@ -28,7 +28,7 @@ input::placeholder {
 	color: $text
 	opacity: .66
 }
-select option {
+select option, select optgroup {
 	background: black
 	color: white
 }
