@@ -16,12 +16,12 @@ class payload extends obj {
 			$data = json_decode((string)file_get_contents('php://input'));
 			return $this->objData = is_object($data) ? get_object_vars($data) : (is_array($data) ? $data : []);
 		}
-		if ($_POST) $this->objImport(...$_POST);
+		if ($_POST) loop($_POST, fn($value, $key) => $this->$key = $value);
 		elseif (in_array(phlo('req')->method, ['PUT', 'PATCH', 'QUERY']) && str_starts_with($contentType, 'application/x-www-form-urlencoded')){
 			$body = file_get_contents('php://input');
 			$data = [];
 			parse_str($body, $data);
-			if ($data) $this->objImport(...$data);
+			if ($data) loop($data, fn($value, $key) => $this->$key = $value);
 		}
 		elseif (in_array(phlo('req')->method, ['PUT', 'PATCH', 'QUERY']) && str_starts_with($contentType, 'multipart/form-data')){
 			$match = regex('/boundary="?([^";]+)"?/', $contentType);
@@ -104,6 +104,6 @@ class payload extends obj {
 			}
 			foreach (array_unique($arrays) AS $key) if (!isset($this->objData[$key])) $this->objData[$key] = [];
 		}
-		if ($_FILES) $this->objImport(...loop($_FILES, fn($f) => is_array($f['name']) ? loop(array_keys($f['name']), fn($i) => $f['error'][$i] ? null : phlo('file', $f['tmp_name'][$i], $f['name'][$i], mime: $f['type'][$i], size: $f['size'][$i])) : ($f['error'] ? null : phlo('file', $f['tmp_name'], $f['name'], mime: $f['type'], size: $f['size']))));
+		if ($_FILES) loop($_FILES, fn($f, $key) => $this->$key = is_array($f['name']) ? loop(array_keys($f['name']), fn($i) => $f['error'][$i] ? null : phlo('file', $f['tmp_name'][$i], $f['name'][$i], mime: $f['type'][$i], size: $f['size'][$i])) : ($f['error'] ? null : phlo('file', $f['tmp_name'], $f['name'], mime: $f['type'], size: $f['size'])));
 	}
 }
