@@ -6,6 +6,7 @@
 // version:  1.0
 // creator:  q-ai.nl
 // summary:  Number field
+// advice:   decimals sets both the step of the input and the formatting of the list. min is 0 out of the box, so state it yourself when negative values are allowed.
 // package:  fields
 // frontend: true
 // backend:  true
@@ -14,19 +15,19 @@ class field_number extends field {
 	public $decimals = 0;
 	public $length = 5;
 	public $min = 0;
-	protected function label($record){
+	protected function label($record):string {
 		return ($value = $record->{$this->name}) === null || $value === void ? dash : number_format($value, $this->decimals, comma, dot);
 	}
-	protected function input($record){
+	protected function input($record):string {
 		return input(type: 'number', name: $this->name, value: $record->{$this->name} ?? $this->default, step: $this->decimals ? dot.str_repeat('0', $this->decimals - 1).'1' : null, min: $this->min, class: 'field');
 	}
-	protected function parse($record){
+	protected function parse($record):void {
 		$name = $this->name;
 		if (!phlo('payload')->hasData($name)) return;
 		$value = phlo('payload')->$name;
 		$record->$name = ($value === null || (is_string($value) && trim($value) === void)) ? ($this->default ?? 0) : $value;
 	}
-	protected function _objColumns(){
+	protected function _objColumns():array {
 		return [$this->name];
 	}
 }

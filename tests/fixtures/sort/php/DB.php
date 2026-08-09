@@ -4,6 +4,7 @@
 // version:  1.0
 // creator:  q-ai.nl
 // summary:  Database engine class
+// advice:   The shape every driver fills in, and the reason a model can move between MySQL, PostgreSQL, SQLite and a JSON file untouched. Reads come in named flavours, so ask for what you want back: record for one, records keyed by id, rows in order, column, pair and item. Anything you pass as an argument is bound, never pasted into the SQL, so a value from a visitor is safe by construction. A connection that went away is reconnected and the query is tried once more, which is what keeps a long-lived worker alive.
 // type:     abstract class
 // package:  database
 // frontend: false
@@ -11,13 +12,13 @@
 // requires: php-ext:pdo
 // tags:     database pdo sql
 abstract class DB extends obj {
-	protected function _PDO(){
+	protected function _PDO():\PDO {
 		return error('No PDO connector defined');
 	}
-	public $fieldQuotes = bt;
-	public $savepoint = 0;
-	public $insertIgnore = ' IGNORE';
-	public $insertOnConflict = void;
+	public string $fieldQuotes = bt;
+	public int $savepoint = 0;
+	public string $insertIgnore = ' IGNORE';
+	public string $insertOnConflict = void;
 	protected function load(string $table, string $columns = '*', string $where = void, string $joins = void, string $group = void, string $limit = void, string $order = void, ...$args){
 		$table = strpos($table, space) || strpos($table, dot) ? $table : "$this->fieldQuotes$table$this->fieldQuotes";
 		$args && $where = ($where ? "$where AND " : void).loop(array_keys($args), fn($column) => $table.dot.$this->quoteId($column).'=?', ' AND ');
@@ -32,11 +33,12 @@ abstract class DB extends obj {
 	protected function query($query, ...$args){
 		return $this->queryRun($query, $args, true);
 	}
-	// A worker can hold a MySQL connection past its wait_timeout; the next request's first
-	// query then throws "server has gone away". Retry once on a connection-loss error by
-	// dropping the cached PDO (which reconnects on next access). Only connection errors are
+	// Runs a statement, retrying once when the connection was lost.
+	// A worker can hold a MySQL connection past its wait_timeout, and the next request's
+	// first query then throws "server has gone away". The retry drops the cached PDO, which
+	// reconnects on next access. Only connection errors are
 	// retried, never a normal SQL failure, so a mutation is never silently re-run.
-	protected function queryRun($query, $args, $retry){
+	protected function queryRun($query, $args, $retry):\PDOStatement {
 		try {
 			if (!$args) $stmt = $this->PDO->query($query);
 			else {
@@ -59,36 +61,37 @@ abstract class DB extends obj {
 			return $this->queryRun($query, $args, false);
 		}
 	}
-	protected function goneAway($e){
+	protected function goneAway($e):bool {
 		return in_array((int)($e->errorInfo[1] ?? 0), [2006, 2013], true) || stripos($e->getMessage(), 'gone away') !== false || stripos($e->getMessage(), 'lost connection') !== false;
 	}
-	protected function column(...$args){
+	protected function column(...$args):array {
 		return $this->load(...$args)->fetchAll(\PDO::FETCH_COLUMN);
 	}
 	protected function item(...$args){
 		return ($v = $this->load(...$args)->fetch(\PDO::FETCH_COLUMN)) === false ? null : $v;
 	}
-	protected function pair(...$args){
+	protected function pair(...$args):array {
 		return $this->load(...$args)->fetchAll(\PDO::FETCH_KEY_PAIR);
 	}
-	protected function group(...$args){
+	protected function group(...$args):array {
 		return $this->load(...$args)->fetchAll(\PDO::FETCH_GROUP|\PDO::FETCH_CLASS, obj::class);
 	}
-	protected function records(...$args){
+	protected function records(...$args):array {
 		return $this->load(...$args)->fetchAll(\PDO::FETCH_CLASS|\PDO::FETCH_UNIQUE, obj::class);
 	}
-	protected function rows(...$args){
+	protected function rows(...$args):array {
 		return $this->load(...$args)->fetchAll(\PDO::FETCH_CLASS, obj::class);
 	}
-	protected function record(...$args){
+	protected function record(...$args):?obj {
 		return $this->load(...$args)->fetchObject(obj::class) ?: null;
 	}
-	protected function quoteList(array $ids){
+	protected function quoteList(array $ids):string {
 		return loop($ids, fn($id) => $this->PDO->quote((string)$id), comma);
 	}
-	// Safely quote a SQL identifier (column/table): wrap in the connector's quote char and double any embedded
-	// quote, so an attacker-controlled array key cannot break out of the identifier (values are always ?-bound).
-	protected function quoteId($id){
+	// Safely quotes a SQL identifier such as a column or table name.
+	// It wraps the name in the connector's quote char and doubles any embedded quote, so an
+	// attacker-controlled array key cannot break out of the identifier. Values are ?-bound.
+	protected function quoteId($id):string {
 		return $this->fieldQuotes.str_replace($this->fieldQuotes, $this->fieldQuotes.$this->fieldQuotes, (string)$id).$this->fieldQuotes;
 	}
 	protected function create(string $table, ...$data){
@@ -102,7 +105,7 @@ abstract class DB extends obj {
 	protected function lastId(){
 		return $this->PDO->lastInsertId();
 	}
-	protected function change(string $table, string $where, ...$data){
+	protected function change(string $table, string $where, ...$data):int {
 		$whereCount = substr_count($where, qm);
 		$updates = isset($data['updates']) ? $data['updates'] : void;
 		unset($data['updates']);
@@ -111,16 +114,16 @@ abstract class DB extends obj {
 		$args = array_values([...array_slice($data, $whereCount), ...array_slice($data, 0, $whereCount)]);
 		return $this->query($query, ...$args)->rowCount();
 	}
-	protected function delete(string $table, string $where, ...$args){
+	protected function delete(string $table, string $where, ...$args):int {
 		return $this->query("DELETE FROM $table WHERE $where", ...$args)->rowCount();
 	}
-	protected function begin(){
+	protected function begin():?bool {
 		return $this->PDO->beginTransaction();
 	}
-	protected function commit(){
+	protected function commit():?bool {
 		return $this->PDO->commit();
 	}
-	protected function rollback(){
+	protected function rollback():?bool {
 		return $this->PDO->inTransaction() && $this->PDO->rollBack();
 	}
 	protected function transaction($callback){

@@ -4,6 +4,7 @@
 // version:  1.0
 // creator:  q-ai.nl
 // summary:  Phlo ORM class with unified columns and schema
+// advice:   A model is a class with fields, and everything else follows from that: columns, form, validation and relations. Named arguments in a read are equality, so records(active: 1) is a where and nothing more; reach for query() when you need a comparison, a LIKE or an IN. A parent field gives back the record itself rather than an id, and children and many-relations are fetched once for a whole result set instead of per row. Set objValidate to have field rules enforced on save, objAudit to log every change, and objCache to keep reads in APCu.
 // type:     abstract class
 // package:  database
 // frontend: false
@@ -24,27 +25,27 @@ abstract class model extends obj {
 	public static $canCreate = true;
 	public static $canChange = true;
 	public static $canDelete = true;
-	public static function state(){
+	public static function state():obj {
 		return phlo('req')->model ??= obj(meta: [], records: [], errors: []);
 	}
-	public static function columns(){
+	public static function columns():string {
 		if (isset(static::$columns)) return static::$columns;
 		if (!method_exists(static::class, 'schema')) return static::$table.'.*';
 		$state = static::state();
 		$key = spl_object_id(static::DB()).':'.static::DB()->fieldQuotes.':'.static::$table;
 		return $state->meta[static::class]['columns'][$key] ??= static::_columns();
 	}
-	public static function _columns(){
+	public static function _columns():string {
 		$fq = static::DB()->fieldQuotes;
 		$list = array_merge(...array_values(array_filter(loop(static::fields(), fn($field) => loop($field->objColumns, fn($col) => static::$table."$fq.$fq".$col)))));
 		return $fq.implode("$fq,$fq", $list).$fq;
 	}
-	public static function fields(){
+	public static function fields():array {
 		if (!method_exists(static::class, 'schema')) return static::$fields ?? [];
 		$state = static::state();
 		return $state->meta[static::class]['fields'] ??= static::_fields();
 	}
-	public static function _fields(){
+	public static function _fields():array {
 		$reserved = ['table','order','fields','columns','create','change','delete','records','record','column','item','pair','DB','objCache','objState','objSave','objGet','objAudit','objValidate','objErrors','idColumn','idType'];
 		$fields = loop(static::schema(), fn($field, $column) => last($field->name ??= $column, $field->type === 'parent' && $field->obj ??= $column, $field));
 		foreach ($reserved AS $word) isset($fields[$word]) && error("Reserved column name '$word' in ".static::class);
@@ -53,7 +54,7 @@ abstract class model extends obj {
 	public static function field($name){
 		return static::fields()[$name];
 	}
-	public static function create(...$args){
+	public static function create(...$args):?static {
 		$class = static::class;
 		if (static::objValidate() && !static::objRunValidation($args)) return null;
 		$record = new $class(...$args);
@@ -62,7 +63,7 @@ abstract class model extends obj {
 		$pk = static::idColumn();
 		return static::objAudit() ? static::transaction(fn() => static::objCreateCommit($record, $pk)) : static::objCreateCommit($record, $pk);
 	}
-	public static function objCreateCommit($record, $pk){
+	public static function objCreateCommit($record, $pk):?static {
 		$id = static::createRecord(...$record);
 		$record = static::record(...[$pk => $record->$pk ?? $id]);
 		method_exists(static::class, 'afterCreate') && $record->afterCreate();
@@ -70,7 +71,7 @@ abstract class model extends obj {
 		static::objAudit() && audit::log($record, 'create', [], $record->objData);
 		return $record;
 	}
-	public static function objRunValidation($data){
+	public static function objRunValidation($data):bool {
 		$errors = [];
 		$fields = static::fields();
 		foreach ($data AS $column => $value){
@@ -80,13 +81,13 @@ abstract class model extends obj {
 		static::state()->errors[static::class] = $errors;
 		return empty($errors);
 	}
-	public static function objErrors(){
+	public static function objErrors():array {
 		return static::state()->errors[static::class] ?? [];
 	}
 	public static function createRecord(...$args){
 		return static::DB()->create(static::$table, ...$args);
 	}
-	public static function change($where, ...$args){
+	public static function change($where, ...$args):int {
 		if (!static::objAudit()) return static::DB()->change(static::$table, $where, ...$args);
 		$pk = static::idColumn();
 		$bindings = array_values(array_filter($args, 'is_int', ARRAY_FILTER_USE_KEY));
@@ -100,7 +101,7 @@ abstract class model extends obj {
 			return $result;
 		});
 	}
-	public static function delete($where, ...$args){
+	public static function delete($where, ...$args):int {
 		if (method_exists(static::class, 'beforeDelete') || method_exists(static::class, 'afterDelete') || static::objAudit()){
 			$records = static::DB()->query('SELECT '.static::$table.'.* FROM '.static::$table.' WHERE '.$where, ...$args)->fetchAll(\PDO::FETCH_CLASS, static::class);
 			foreach ($records AS $record) method_exists(static::class, 'beforeDelete') && $record->beforeDelete();
@@ -108,7 +109,7 @@ abstract class model extends obj {
 		}
 		return static::DB()->delete(static::$table, $where, ...$args);
 	}
-	public static function objDeleteCommit($where, $args, $records){
+	public static function objDeleteCommit($where, $args, $records):int {
 		$result = static::DB()->delete(static::$table, $where, ...$args);
 		foreach ($records AS $record){
 			method_exists(static::class, 'afterDelete') && $record->afterDelete();
@@ -116,14 +117,13 @@ abstract class model extends obj {
 		}
 		return $result;
 	}
-	public static function objLogChange($where, ...$args){
+	public static function objLogChange($where, ...$args):int {
 		return static::change($where, ...$args);
 	}
-	public function objSave(){
+	public function objSave():?static {
 		$pk = static::idColumn();
 		$pkValue = $this->$pk ?? $this->id ?? null;
 		$pkValue || error('Can\'t save '.static::class.' record without '.$pk);
-		// Hooks receive the persisted row as $old, never a clone of the already-mutated object.
 		$old = static::record(...[$pk => $pkValue]);
 		$isNew = !$old;
 		method_exists(static::class, 'beforeSave') && $this->beforeSave($old);
@@ -140,7 +140,7 @@ abstract class model extends obj {
 		method_exists(static::class, 'afterSave') && $saved->afterSave($old);
 		return $saved;
 	}
-	public function objSaveCreate($pk, $pkValue){
+	public function objSaveCreate($pk, $pkValue):?static {
 		static::createRecord(...$this);
 		$saved = static::record(...[$pk => $pkValue]);
 		method_exists(static::class, 'afterCreate') && $saved->afterCreate();
@@ -150,27 +150,32 @@ abstract class model extends obj {
 	public static function transaction($callback){
 		return static::DB()->transaction($callback);
 	}
-	public static function query(){
+	public static function query():query {
 		return phlo('query', class: static::class);
 	}
-	public static function column(...$args){
+	public static function column(...$args):array {
 		return static::recordsLoad($args, 'fetchAll', [\PDO::FETCH_COLUMN]);
 	}
 	public static function item(...$args){
 		return static::recordsLoad($args, 'fetch', [\PDO::FETCH_COLUMN]);
 	}
-	public static function pair(...$args){
+	public static function pair(...$args):array {
 		return static::recordsLoad($args, 'fetchAll', [\PDO::FETCH_KEY_PAIR]);
 	}
-	public static function records(...$args){
+	public static function records(...$args):array {
 		return static::recordsLoad($args, 'fetchAll', [\PDO::FETCH_CLASS|\PDO::FETCH_UNIQUE, static::class], true);
 	}
 	public static function recordCount(...$args){
 		return static::item(...$args, columns: 'COUNT('.static::idColumn().')');
 	}
-	public static function record(...$args){
+	public static function record(...$args):?static {
 		return count($records = static::records(...$args)) > 1 ? error('Multiple records for '.static::class) : (current($records) ?: null);
 	}
+	// Loads records and, on a full record read, keeps them on the request-local state so a
+	// relation can be fetched once for the whole set instead of once per row. That set is
+	// capped at objRecordLimit and trimmed to the newest, so a long-lived worker cannot grow
+	// it without bound. The cache key sorts the arguments first, so the same query written in
+	// a different order shares one entry.
 	public static function recordsLoad($args, $fetch, $fetchMode, $saveRelations = false){
 		$pk = static::idColumn();
 		$args['table'] ??= static::$table;
@@ -195,20 +200,21 @@ abstract class model extends obj {
 		}
 		return $records;
 	}
-	public static function objRel($key){
+	public static function objRel($key):array {
 		$state = static::state();
 		return $state->meta[static::class][$key] ??= method_exists(static::class, $key) ? static::$key() : static::$$key ?? [];
 	}
-	public $objState = ['parents' => [], 'children' => [], 'many' => []];
+	public array $objState = ['parents' => [], 'children' => [], 'many' => []];
 	public function objGet($key){
 		return $this->getParent($key) ?? $this->getChildren($key) ?? $this->getMany($key);
 	}
-	public function objIn($ids, $db = null){
+	public function objIn($ids, $db = null):string {
 		return $ids ? ($db ?? static::DB())->quoteList($ids) : 'NULL';
 	}
-	// A reference held across a re-fetch is orphaned from the record cache; after a
-	// relation is loaded onto the canonical record, mirror it onto this object too so the
-	// held reference sees it. No-op when this object is itself the canonical one.
+	// Mirrors a freshly loaded relation onto a stale reference to the same record.
+	// A reference held across a re-fetch is orphaned from the record cache, so once a
+	// relation is loaded onto the canonical record it is copied here too and the held
+	// reference sees it. No-op when this object is itself the canonical one.
 	public function objMirror(string $bucket, $key){
 		$pk = $this->objData[static::idColumn()] ?? null;
 		if ($pk === null) return;
@@ -279,7 +285,7 @@ abstract class model extends obj {
 		$this->objMirror('many', $key);
 		return $this->objState['many'][$key] ?? [];
 	}
-	protected function getCount($key){
+	protected function getCount($key):int {
 		if (array_key_exists($key, $this->objState['counts'] ?? [])) return $this->objState['counts'][$key];
 		$state = static::state();
 		if ($relation = self::objRel('objChildren')[$key] ?? null){
@@ -333,23 +339,23 @@ abstract class model extends obj {
 		}
 		return null;
 	}
-	public static function objResolveClass($name){
+	public static function objResolveClass($name):string {
 		return $name;
 	}
-	public static function objShortName($class = null){
+	public static function objShortName($class = null):string {
 		return $class ?? static::class;
 	}
-	public static function objParents(){
+	public static function objParents():array {
 		if (property_exists(static::class, 'objParents')) return static::$objParents;
 		if (!method_exists(static::class, 'schema')) return [];
 		return loop(array_filter(static::fields(), fn($f) => $f->type === 'parent'), fn($f, $c) => $f->key ? arr(obj: static::objResolveClass($f->obj), key: $f->key) : (static::objResolveClass($f->obj ?? $c)));
 	}
-	public static function objChildren(){
+	public static function objChildren():array {
 		if (property_exists(static::class, 'objChildren')) return static::$objChildren;
 		if (!method_exists(static::class, 'schema')) return [];
 		return loop(array_filter(static::fields(), fn($f) => $f->type === 'child'), fn($f, $c) => $f->key ? arr(obj: static::objResolveClass($f->obj), key: $f->key) : (static::objResolveClass($f->obj ?? $c)));
 	}
-	public static function objMany(){
+	public static function objMany():array {
 		if (property_exists(static::class, 'objMany')) return static::$objMany;
 		if (!method_exists(static::class, 'schema')) return [];
 		return loop(array_filter(static::fields(), fn($f) => $f->type === 'many'), fn($f) => arr(obj: static::objResolveClass($f->obj), table: $f->table, localKey: $f->localKey ?? static::objShortName(), foreignKey: $f->foreignKey ?? $f->obj));

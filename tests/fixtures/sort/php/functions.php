@@ -1,10 +1,10 @@
 <?php
 
-function field($type, ...$args){
+function field($type, ...$args):field {
 	return phlo("field_$type", ...$args, type: $type);
 }
 
-function tag(string $tagName, ?string $inner = null, ...$args){
+function tag(string $tagName, ?string $inner = null, ...$args):string {
 	return "<$tagName".loop(array_filter($args, fn($value) => !is_null($value)), fn($value, $key) => space.strtr($key, [us => dash]).($value === true ? void : '="'.esc($value).'"'), void).'>'.(is_null($inner) ? void : "$inner</$tagName>");
 }
 

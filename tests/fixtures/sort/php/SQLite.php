@@ -4,6 +4,7 @@
 // version:  1.0
 // creator:  q-ai.nl
 // summary:  SQLite resource
+// advice:   One file, one database, given as a path: %SQLite('/path/db.sqlite'). It writes with a lock over the whole file, so it fits a single site or a worker but not a set of processes writing at once. Perfect where you want the ORM without a server.
 // extends:  DB
 // package:  database
 // frontend: false
@@ -15,8 +16,8 @@ class SQLite extends DB {
 		return "SQLite/$file";
 	}
 	public function __construct(private string $file){}
-	protected function _PDO(){
+	protected function _PDO():\PDO {
 		return new PDO('sqlite:'.$this->file);
 	}
-	public $insertIgnore = ' OR IGNORE';
+	public string $insertIgnore = ' OR IGNORE';
 }
