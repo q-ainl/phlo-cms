@@ -3,8 +3,15 @@
 // phlo:   1.0.1
 // type:   abstract class
 abstract class CMS extends obj {
+	// Stored uploads. The token is the storage name: token() draws from a-z only, and the first
+	// two characters are the subdirectory. Both halves are checked before they touch a path,
+	// because a length check alone lets a token starting with ".." address the parent directory.
+	// The extension comes from the request too, so it is held to the same discipline.
 	public static function GETSectionTokenFilename($section, $token, $filename){
-		return output(file: ($exists = file_exists($file = constant($section).substr($token, 0, 2).slash.substr($token, 2).dot.pathinfo($filename, PATHINFO_EXTENSION))) ? $file : www.'notFound.webp', attachment: $exists ? null : false);
+		$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+		if (!preg_match('/^[a-z]{20}$/', $token) || !preg_match('/^[a-z0-9]{1,8}$/', $ext)) return output(file: www.'notFound.webp', attachment: false);
+		$file = constant($section).substr($token, 0, 2).slash.substr($token, 2).dot.$ext;
+		return output(file: is_file($file) ? $file : www.'notFound.webp', attachment: is_file($file) ? null : false);
 	}
 	public static function _uriLists(){
 		return create(phlo('app')->models, fn($model) => $model::$uriList ?? $model::$table);

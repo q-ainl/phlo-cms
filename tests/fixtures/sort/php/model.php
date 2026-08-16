@@ -171,11 +171,11 @@ abstract class model extends obj {
 	public static function record(...$args):?static {
 		return count($records = static::records(...$args)) > 1 ? error('Multiple records for '.static::class) : (current($records) ?: null);
 	}
-	// Loads records and, on a full record read, keeps them on the request-local state so a
-	// relation can be fetched once for the whole set instead of once per row. That set is
-	// capped at objRecordLimit and trimmed to the newest, so a long-lived worker cannot grow
-	// it without bound. The cache key sorts the arguments first, so the same query written in
-	// a different order shares one entry.
+	// Loads records and keeps a full record read on the request-local state for relation reuse.
+	// A relation can then be fetched once for the whole set instead of once per row. That set is
+	// capped at objRecordLimit and trimmed to the newest, so a long-lived worker cannot grow it
+	// without bound. The cache key sorts the arguments first, so the same query written in a
+	// different order shares one entry.
 	public static function recordsLoad($args, $fetch, $fetchMode, $saveRelations = false){
 		$pk = static::idColumn();
 		$args['table'] ??= static::$table;
