@@ -246,15 +246,25 @@ form#bi {
 	margin: 1rem 0
 	padding: 2rem
 	text-align: center
-	.bi-stat-value: font-size: 3rem; font-weight: 700; line-height: 1.1
+	.bi-stat-value {
+		font-size: 3rem
+		font-weight: 700
+		line-height: 1.1
+	}
 	.bi-stat-label: opacity: .7
 }
 table.bi-table {
 	border-collapse: collapse
 	margin: 1rem 0
 	width: 100%
-	td: border-bottom: 1px solid #8884; padding: .4rem .6rem
-	td:last-child: text-align: right; font-variant-numeric: tabular-nums
+	td {
+		border-bottom: 1px solid #8884
+		padding: .4rem .6rem
+	}
+	td:last-child {
+		text-align: right
+		font-variant-numeric: tabular-nums
+	}
 }
 #widgets + table.bi-table: opacity: .6
 </style>
