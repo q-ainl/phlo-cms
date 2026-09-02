@@ -57,4 +57,19 @@ final class CmsBiTest extends TestCase {
 		$this->assertTrue($r['cachedBefore'], 'the structure is in the cache before the query runs');
 		$this->assertTrue($r['evictedAfter'], 'a valid-model-but-bad-structure entry is dropped from the cache when buildQuery fails, so the deterministic token does not fail forever');
 	}
+
+	// The clauses the search writes are real SQL - that freedom is what lets it answer a question
+	// about a weekday or a month at all. Reading stays free, in every shape; the only thing between
+	// a question and a damaged table is that nothing may alter, create or remove.
+	public function testClausesMayReadAndNothingElse():void {
+		$r = self::fetch('biprobe::clauseCases');
+		foreach ($r['allowed'] AS $name => $ok) $this->assertTrue($ok, "a reading clause was refused: $name");
+		foreach ($r['refused'] AS $name => $refused) $this->assertTrue($refused, "a clause that does more than read was allowed: $name");
+		// MySQL executes what is inside /*! ... */ and ignores the wrapper, so a checker that strips
+		// comments before looking would pass this straight through to the database.
+		$this->assertTrue($r['refused']['executableComment'], 'an executable comment must be refused, not stripped');
+		$this->assertTrue($r['allowed']['union'], 'a union reads and is therefore allowed');
+		$this->assertTrue($r['allowed']['subquery'], 'a subquery reads and is therefore allowed');
+		$this->assertTrue($r['empty'], 'an absent clause is simply absent, not an error');
+	}
 }

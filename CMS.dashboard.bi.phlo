@@ -5,16 +5,24 @@ route both GET $list $token {
 }
 route async POST bi @q {
 	trim(%payload->q) || error('Describe what you are looking for')
-	if (($search = array_filter(loop($this->searches->objData, fn($search, $token) => $search['title'] === %payload->q ? $search : null))) && ($token = key($search))) return $this->fromBI($search[$token], $token)
+	if (($search = array_filter(loop($this->searches->objData, fn($search, $token) => $search['title'] === %payload->q && ($search['v'] ?? null) === $this->promptVersion ? $search : null))) && ($token = key($search))) return $this->fromBI($search[$token], $token)
 	$token = token(input: %payload->q)
 	$res = $this->searches->$token
-	if ($res === null){
-		$parsed = array_filter((array)json_decode(%AI->chat(model: %AI->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".$this->promptColumns($model), lf.lf), %payload->q), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
-		if (!in_array($parsed['model'] ?? null, %app->models, true)) return $this->fail('Could not understand that query')
-		$res = $this->searches->$token = $parsed
-	}
+	if (($res['v'] ?? null) !== $this->promptVersion) $res = null
+	$res ??= $this->ask((string)%payload->q, $token)
+	if ($res === null) return $this->fail('Could not understand that query')
 	$this->pruneCache()
 	$this->fromBI($res, $token)
+}
+
+// Apart from the route so a stored answer that predates a correction can replace itself: its own
+// address is a link people keep.
+method ask($question, $token){
+	$parsed = array_filter((array)json_decode(%AI->chat(model: $this->model, user: $this->prompt(loop(%app->models, fn($model) => "Model: $model\nColumns: ".$this->promptColumns($model), lf.lf), $question), temperature: 0, response_format: arr(type: 'json_object'))->answer, true))
+	if (!in_array($parsed['model'] ?? null, %app->models, true)) return null
+	$parsed['v'] = $this->promptVersion
+	$parsed['title'] ??= $question
+	return $this->searches->$token = $parsed
 }
 
 method pruneCache($max = 200){
@@ -29,6 +37,24 @@ prop searches => %JSON('bi', assoc: true)
 
 method fromBI($res = null, $token = null){
 	$res ??= first($this->searches->$token, $this->searches->$token['usage'] = ($this->searches->$token['usage'] ?? 0) + 1, $this->searches->objChanged = true)
+	// Checked here and not only where a question is asked: a stored answer is also reached by its own
+	// address, and opening that link replayed what was written before a correction.
+	if ($res && ($res['v'] ?? null) !== $this->promptVersion){
+		// The model can be unreachable; then the stale answer still goes and the reader hears why.
+		try {
+			$again = $token ? $this->ask((string)($res['title'] ?? void), $token) : null
+		} catch (\Throwable $e){
+			$again = null
+		}
+		if ($again === null){
+			if ($token && isset($this->searches->$token)){
+				unset($this->searches->$token)
+				$this->searches->objChanged = true
+			}
+			return $this->fail(en('That answer was written before this search was improved. Ask the question again.'))
+		}
+		$res = $again
+	}
 	$model = $res['model'] ?? null
 	if (!$model || !in_array($model, %app->models)) return $this->fail('Could not understand that query')
 	if (!$model::canView()) return $this->fail('No access to that data')
@@ -37,7 +63,7 @@ method fromBI($res = null, $token = null){
 	$uri = ($model::$uriList ?? $model::$table).slash.$token
 	try {
 		if (isset($res['aggregate'])) return $this->renderAggregate($model, $res, $this->buildAggregate($model, $res), $title, $uri)
-		$records = $this->buildQuery($model, $res)
+		$records = $this->buildClauses($model, $res)
 	} catch (\Throwable $e){
 		// The model was valid but the structure (column/operator) was not; drop it from the cache so the
 		// same deterministic token does not fail forever and is re-asked next time.
@@ -52,10 +78,14 @@ method fromBI($res = null, $token = null){
 	main($CMS, $title, path: "$CMS->uri/$token")
 }
 
+// One reading of "grouped", shared with buildAggregate: reading it differently here showed the
+// first of several groups as a single total, which is a wrong report that looks like a right one.
+method grouping($res) => (string)($res['group'] ?? $res['groupBy'] ?? '')
+
 // The chart widget renders only when the widget resource is loaded (a CMS app need not enable it), so the
 // data table stays as a fallback that needs neither the widget nor echarts.
 method renderAggregate($model, $res, $rows, $title, $uri){
-	if ((string)($res['groupBy'] ?? '') === '') return main($this->statCard($title, $rows[0]['value'] ?? 0), $title, path: $uri)
+	if ($this->grouping($res) === '') return main($this->statCard($title, $rows[0]['value'] ?? 0), $title, path: $uri)
 	$data = []
 	foreach ($rows AS $row) $data[(string)($row['label'] ?? '')] = $row['value']
 	$type = in_array($res['chart'] ?? 'bar', ['bar', 'line', 'pie'], true) ? $res['chart'] : 'bar'
@@ -85,15 +115,50 @@ method modelColumns($model){
 method promptColumns($model){
 	$meta = []
 	foreach ($model::fields() AS $column => $field) foreach ((array)$field->objColumns AS $col) $meta[$col] ??= $field
-	return loop($this->modelColumns($model), fn($col) => $col.$this->columnNote($meta[$col] ?? null), ', ')
+	return loop($this->modelColumns($model), fn($col) => $col.$this->columnNote($meta[$col] ?? null, $model, $col), ', ')
 }
-method columnNote($field){
+method columnNote($field, $model = null, $column = null){
 	$title = $field && $field->title && strtolower((string)$field->title) !== strtolower((string)$field->name) ? (string)$field->title : void
-	$date = $field && in_array($field->type, ['date', 'datetime'], true)
-	return $title || $date ? ' ('.implode(comma.space, array_filter([$title, $date ? 'date' : void])).')' : void
+	// A unix timestamp needs FROM_UNIXTIME, a real DATE column must not have it: wrapping the second
+	// kind returns nothing while looking like an answer. The storage is asked of the database.
+	$stored = $this->columnType($model, $column)
+	$isDate = in_array($stored, ['date', 'datetime', 'timestamp'], true)
+	$note = $isDate ? 'date' : ($field && in_array($field->type, ['date', 'datetime'], true) ? 'unix timestamp' : void)
+	// A pointer is not the thing it is named after: "day" on a sale is an id, not a date.
+	if ($note === void && $field && $field->type === 'parent') $note = 'id of another record, join to read its fields'
+	return $title || $note ? ' ('.implode(comma.space, array_filter([$title, $note])).')' : void
+}
+
+// Asked of the database rather than the model, because this is about storage and not about how the
+// field presents itself. Cached per table: the prompt walks every column of every model.
+method columnType($model, $column){
+	if (!$model || !$column) return void
+	$table = (string)($model::$table ?? void)
+	if ($table === void) return void
+	%req->biTypes ??= []
+	if (!isset(%req->biTypes[$table])){
+		$types = []
+		try {
+			foreach ($model::DB()->query('SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', $table)->fetchAll(\PDO::FETCH_NUM) AS $row) $types[(string)$row[0]] = (string)$row[1]
+		} catch (\Throwable $e){
+		}
+		%req->biTypes = [...%req->biTypes, $table => $types]
+	}
+	return strtolower((string)(%req->biTypes[$table][$column] ?? void))
 }
 
 method aggregates => ['count' => 'COUNT', 'sum' => 'SUM', 'avg' => 'AVG', 'min' => 'MIN', 'max' => 'MAX']
+
+// Raise this whenever the instructions change: a stored answer written under the old ones is then
+// asked again instead of being replayed forever. Writing SQL is not the job the app-wide default
+// model is set for, so this search names its own and leaves translations where they are.
+prop model:string = 'gpt-5.4-mini'
+
+method promptVersion => 7
+
+// Spelled out with chr(37) because a percent sign followed by a name is a resource reference in
+// this language, so writing the format string literally turns '%Y-%m' into two lookups.
+method monthFormat => "DATE_FORMAT(FROM_UNIXTIME(column), '".chr(37)."Y-".chr(37)."m')"
 
 // The WHERE clause the LLM's STRUCTURED filters translate to, shared by the list and the aggregate query. Every
 // column is validated against the model's real columns and identifier-quoted, every value is a bound (?)
@@ -131,6 +196,33 @@ method whereParts($model, $res, $valid, $qcol){
 	return [$conds, $binds]
 }
 
+// The clauses as the model wrote them: a WHERE is an expression, so a weekday or a subquery fits.
+// Reading is free; altering, creating and removing are not, and that is the whole line. OUTFILE
+// and DUMPFILE write a file, LOAD_FILE reads one.
+method clauseWords => ['insert', 'update', 'delete', 'replace', 'truncate', 'drop', 'alter', 'create', 'rename', 'grant', 'revoke', 'load_file', 'call', 'lock', 'unlock', 'handler', 'prepare', 'execute', 'outfile', 'dumpfile']
+
+method clauseSafe($fragment){
+	$text = (string)$fragment
+	if ($text === void) return void
+	if (preg_match('~/\*!~', $text)) error('A search cannot contain an executable comment')
+	$clean = trim((string)preg_replace(['~/\*.*?\*/~s', '~--[^\n]*~', '~#[^\n]*~'], space, $text))
+	if (str_contains($clean, ';')) error('A search cannot contain more than one statement')
+	foreach ($this->clauseWords() AS $word){
+		if (preg_match('~(?<![a-z0-9_])'.preg_quote($word, '~').'(?![a-z0-9_])~i', $clean)) error('A search cannot contain '.strtoupper($word))
+	}
+	return $clean === void ? void : $clean
+}
+
+method buildClauses($model, $res){
+	$clauses = []
+	foreach (['where', 'joins', 'order', 'group'] AS $part){
+		$safe = $this->clauseSafe($res[$part] ?? void)
+		if ($safe !== void) $clauses[$part] = $safe
+	}
+	$clauses['limit'] = min(500, max(1, (int)($res['limit'] ?? 100)))
+	return $model::records(...$clauses)
+}
+
 method buildQuery($model, $res){
 	$valid = array_flip($this->modelColumns($model))
 	$fq = $model::DB()->fieldQuotes
@@ -159,16 +251,27 @@ method buildAggregate($model, $res){
 	isset($this->aggregates[$agg]) || error('Unknown aggregate')
 	if ($agg === 'count') $valueSql = 'COUNT(*)'
 	else {
+		// A bare column of this model is qualified with its table; anything else is taken as the
+		// expression it is, checked by the same reading-only rule as the other clauses. Demanding a
+		// listed column here is what refused "line.gross" the moment a join brought it in, and any
+		// sum over something computed.
 		$col = (string)($res['aggregateColumn'] ?? '')
-		isset($valid[$col]) || error("Unknown aggregate column: $col")
-		$valueSql = $this->aggregates[$agg].'('.$table.dot.$qcol($col).')'
+		$col === '' && error('Missing aggregate column')
+		$valueSql = $this->aggregates[$agg].'('.(isset($valid[$col]) ? $table.dot.$qcol($col) : $this->clauseSafe($col)).')'
 	}
 	[$conds, $binds] = $this->whereParts($model, $res, $valid, $qcol)
-	$group = (string)($res['groupBy'] ?? '')
-	$group !== '' && !isset($valid[$group]) && error("Unknown group column: $group")
-	$sql = 'SELECT '.($group !== '' ? $table.dot.$qcol($group).' AS '.$qcol('label').comma.space : void).$valueSql.' AS '.$qcol('value').' FROM '.$table
+	// The same clauses the record list gets, or a total counts the whole table while the question
+	// asked about a Saturday. A join belongs here too: the thing being counted and the thing being
+	// filtered on often live in different tables.
+	$where = $this->clauseSafe($res['where'] ?? void)
+	$joins = $this->clauseSafe($res['joins'] ?? void)
+	$where !== void && $conds[] = '('.$where.')'
+	$group = $this->grouping($res)
+	$groupSql = $group === '' ? void : (isset($valid[$group]) ? $table.dot.$qcol($group) : $this->clauseSafe($group))
+	$sql = 'SELECT '.($groupSql !== void ? $groupSql.' AS '.$qcol('label').comma.space : void).$valueSql.' AS '.$qcol('value').' FROM '.$table
+	$joins !== void && $sql .= space.$joins
 	$conds && $sql .= ' WHERE '.implode(' AND ', $conds)
-	if ($group !== '') $sql .= ' GROUP BY '.$table.dot.$qcol($group).' ORDER BY '.$qcol('value').' DESC LIMIT '.min(50, max(1, (int)($res['limit'] ?? 20)))
+	if ($groupSql !== void) $sql .= ' GROUP BY '.$groupSql.' ORDER BY '.$qcol('value').' DESC LIMIT '.min(50, max(1, (int)($res['limit'] ?? 20)))
 	return $model::DB()->query($sql, ...$binds)->fetchAll(\PDO::FETCH_ASSOC)
 }
 
@@ -185,7 +288,7 @@ method fail($message) => %req->async ? apply(error: $message) : main(tag('sectio
 view:
 <form#bi.async action=/bi method=post autocomplete=off>
 	<button#speak.icon.microphone type=button autofocus/>
-	<input.field.full type=text name=q list=searches placeholder="Describe what you want to know">
+	<input.field.full type=text name=q list=searches placeholder="{{ en('Describe what you want to know') }}">
 	{{ $this->datalist }}
 	<button>&gt;</button>
 </form>
@@ -198,18 +301,22 @@ view datalist {
 }
 
 view prompt($struct, $q):
-You translate a natural-language question into a structured database query. Do not write SQL.
+You translate a natural-language question into a MySQL query over the structure below.
 Return only a JSON object with these keys:
 -title: a short title describing the search
 -model: the singular model name, chosen from the list below
--filters: an array of objects, each with "column" (a column of the chosen model), "op" (one of: = != > >= < <= like in between null notnull) and "value" (the value; a single value for scalar ops, an array for in and between; omit for null and notnull)
--aggregate: optional, one of "count" "sum" "avg" "min" "max". Set this when the question asks for a number ("how many", "total", "average") rather than a list of records.
--aggregateColumn: the column to sum/avg/min/max (omit for count)
--groupBy: optional column to break the aggregate down by ("per host", "by country"); with it the answer is a chart
--chart: optional, one of "bar" "line" "pie", for a grouped aggregate
--order: optional, an object with "column" (a column) and "dir" ("asc" or "desc"), for a record list
+-where: optional, everything that would follow WHERE. Any expression is allowed, so use one where the question calls for it: DAYOFWEEK(), DATE_FORMAT(), BETWEEN, IN, a subquery.
+-joins: optional, one or more JOIN clauses written out in full ("JOIN sale ON sale.id = line.sale"), for when the question filters on a column that lives in another table. Qualify columns with their table name as soon as you join.
+-order: optional, everything that would follow ORDER BY
+-group: optional, everything that would follow GROUP BY
 -limit: optional integer, at most 500
-Turn every constraint in the question into a filter on the column whose title matches it. A named entity ("on q-dev.nl") is an equality filter; a partial name or suffix (".nl domains", "names starting with a") is a "like" filter with a % wildcard on the column that holds that name (often the one titled like the record itself, e.g. "Domain"); a time span ("last 24 hours", "in June") is a range on a date column. Columns marked (date) hold a date; give their value as a plain date or datetime string like "2026-07-03" or "2026-07-03 14:00". Use only the columns listed for the chosen model. Never invent columns and never return SQL.
+-aggregate: optional, one of "count" "sum" "avg" "min" "max". Use this instead of the clauses above when the question asks for a single number ("how many", "total", "average") rather than for records.
+-aggregateColumn: the column to sum/avg/min/max (omit for count)
+-groupBy: optional, what to break that aggregate down by; with it the answer is a chart. Either a listed column, or the expression that produces the grouping - never a bare word for it. "Per month" is {{ $this->monthFormat }}, not "month"; per weekday is DAYOFWEEK(FROM_UNIXTIME(column)), not "weekday".
+-chart: optional, one of "bar" "line" "pie", for a grouped aggregate
+Use only the columns listed for the chosen model, and never invent one. Write the clauses in MySQL, not PostgreSQL: there is no DATE_TRUNC and no ILIKE.
+Mind how a date column is stored, because the two kinds need different SQL and getting it wrong returns an empty answer that looks like a real one. A column marked (unix timestamp) is an integer: compare it with UNIX_TIMESTAMP('2026-06-01') or wrap it in FROM_UNIXTIME(column) to read a date from it. A column marked (date) is a real date: use it directly, and never put FROM_UNIXTIME around it.
+Never write anything that changes data and never open a second query: no INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, GRANT, UNION, and no second statement. Such an answer is refused.
 Question:
 --
 $q

@@ -42,3 +42,49 @@ static cacheCases {
 	ob_end_clean()
 	return ['cachedBefore' => $cachedBefore, 'evictedAfter' => !isset($bi->searches->badtoken)]
 }
+
+// The line the search draws: reading is free, changing is not. The clauses it writes are real SQL,
+// which is why it can answer anything at all, so every case below is a way to phrase a mutation.
+//
+// The executable comment catches a naive checker out: MySQL runs what sits inside it and ignores
+// the wrapper, so stripping comments before looking would let it through.
+method probeClause($fragment) => $this->clauseSafe($fragment)
+
+static refuses($fn):bool {
+	try {
+		$fn()
+		return false
+	} catch (\Throwable $e){
+		return true
+	}
+}
+
+static clauseCases {
+	$bi = phlo('biprobe')
+	$allowed = [
+		'comparison' => "gross > 20",
+		'expression' => "DAYOFWEEK(FROM_UNIXTIME(closed_at)) = 7",
+		'between' => "closed_at BETWEEN UNIX_TIMESTAMP('2026-06-01') AND UNIX_TIMESTAMP('2026-07-01')",
+		'join' => 'JOIN sale ON sale.id = line.sale',
+		// Spelled out with chr(37): a percent sign followed by a name is a resource reference here.
+		'grouping' => "DATE_FORMAT(FROM_UNIXTIME(closed_at), '".chr(37)."Y-".chr(37)."m')",
+		'subquery' => 'id IN (SELECT sale FROM line WHERE qty > 2)',
+		'union' => '1 = 1 UNION SELECT id FROM line',
+	]
+	$refused = [
+		'secondStatement' => "1 = 1; DROP TABLE sale",
+		'delete' => "1 = 1 AND (DELETE FROM sale)",
+		'update' => "1 = 1 AND (UPDATE sale SET gross = 0)",
+		'drop' => "1 = 1 OR DROP TABLE sale",
+		'grant' => "1 = 1 OR GRANT ALL ON x.* TO y",
+		'outfile' => "1 = 1 INTO OUTFILE '/tmp/x'",
+		'loadFile' => "name = LOAD_FILE('/etc/passwd')",
+		'executableComment' => "1 = 1 /*! ; DROP TABLE sale */",
+		'versionedComment' => "1 = 1 /*!32302 ; DROP TABLE sale */",
+	]
+	$out = ['allowed' => [], 'refused' => []]
+	foreach ($allowed AS $name => $fragment) $out['allowed'][$name] = !static::refuses(fn() => $bi->probeClause($fragment))
+	foreach ($refused AS $name => $fragment) $out['refused'][$name] = static::refuses(fn() => $bi->probeClause($fragment))
+	$out['empty'] = $bi->probeClause('') === void
+	return $out
+}
